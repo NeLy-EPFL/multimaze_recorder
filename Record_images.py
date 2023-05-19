@@ -51,11 +51,12 @@ start = time.perf_counter()
 while count < duration * fps:
     if Tis.snap_image(timeout):  # Snap an image with one second timeout    
         image = Tis.get_image()  # Get the image. It is a numpy array
-        
+        print("Image ", image.shape, image.dtype)
         filename = folder.joinpath("image" + str(count) + ".jpg").as_posix()
-        #im = Image.fromarray(image)
-        #im.save(filename) 
-        cv2.imwrite(filename, image)
+        image = np.reshape(image, (3000, 4096))
+        im = Image.fromarray(image, mode="L")
+        im.save(filename) 
+        #cv2.imwrite(filename, image)
         #time.sleep(timeout) 
         count += 1
 
