@@ -4,60 +4,64 @@ import numpy as np
 import time
 from pathlib import Path
 from PIL import Image
+import json
 
-#sys.path.append("../python-common")
-
+# sys.path.append("../python-common")
 import TIS
 
-# This sample shows, how to get an image and convert it to OpenCV
-# needed packages:
-# pyhton-opencv
-# pyhton-gst-1.0
-# tiscamera
+presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
 
+# Camera config
 
-Tis = TIS.TIS()
+with open(presets) as jsonFile:
+    cameraconfigs = json.load(jsonFile)
+    jsonFile.close()
 
-Tis.open_device("39220254",4096, 3000, "30/1", TIS.SinkFormats.GRAY8, True)
+format = cameraconfigs["format"]
 
-# the camera with serial number 39220254 uses a 4096x3000 video format at 30 fps and the image is converted to
-# GRAY8.
-# True means whether the live view is shown or not.
+Tis = TIS.TIS(cameraconfigs["properties"])
 
-# The next line is for selecting a device, video format and frame rate.
-#if not Tis.select_device():
-#    quit(0)
+Tis.open_device(
+    format["serial"],
+    format["width"],
+    format["height"],
+    format["framerate"],
+    TIS.SinkFormats.GRAY8,
+    True,
+)
 
-# Just in case trigger mode is enabled, disable it.
-try:
-    Tis.set_property("TriggerMode", "Off")
-except Exception as error:
-    print(error)
+Tis.start_pipeline()
+Tis.applyProperties()
 
+camera = Tis.get_source()
+state = camera.get_property("tcam-properties-json")
+print(f"State of device is:\n{state}")
 
-Tis.start_pipeline()  # Start the pipeline so the camera streams
-
+# Record images
 duration = 15
 
 fps = 30
 
 count = 0
-timeout = 1/fps
+timeout = 1 / fps
 
 folder = Path("/home/matthias/Videos/Test/")
 
+time.sleep(2)
 
 start = time.perf_counter()
 while count < duration * fps:
-    if Tis.snap_image(timeout):  # Snap an image with one second timeout    
+    if Tis.snap_image(timeout):  # Snap an image with one second timeout
         image = Tis.get_image()  # Get the image. It is a numpy array
-        print("Image ", image.shape, image.dtype)
+        # print("Image ", image.shape, image.dtype)
         filename = folder.joinpath("image" + str(count) + ".jpg").as_posix()
         image = np.reshape(image, (3000, 4096))
+        # crop image to only keep the center part of the width
+        image = image[100:2900, 300:3700]
         im = Image.fromarray(image, mode="L")
-        im.save(filename) 
-        #cv2.imwrite(filename, image)
-        #time.sleep(timeout) 
+        im.save(filename)
+        # cv2.imwrite(filename, image)
+        # time.sleep(timeout)
         count += 1
 
 stop = time.perf_counter()

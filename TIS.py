@@ -28,7 +28,7 @@ class SinkFormats(Enum):
 class TIS:
     "The Imaging Source Camera"
 
-    def __init__(self):
+    def __init__(self, properties):
         try:
             if not Gst.is_initialized():
                 Gst.init(())  # Usually better to call in the main function.
@@ -47,6 +47,7 @@ class TIS:
         self.pipeline = None
         self.source = None
         self.appsink = None
+        self.properties = properties
 
     def open_device(
         self,
@@ -428,6 +429,20 @@ class TIS:
             field, values, remain = re.split("{|}", substr, maxsplit=3)
             rates = [x.strip() for x in values.split(",")]
         return rates
+
+    def applyProperties(self):
+        """
+        Apply the properties in self.properties to the used camera
+        The properties are applied in the sequence they are saved
+        int the json file.
+        Therefore, in order to set properties, that have automatiation
+        the automation must be disabeld first, then the value can be set.
+        """
+        for prop in self.properties:
+            try:
+                self.set_property(prop["property"], prop["value"])
+            except Exception as error:
+                print(error)
 
 
 class ResDesc:
