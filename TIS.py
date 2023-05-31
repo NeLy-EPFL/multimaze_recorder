@@ -90,7 +90,7 @@ class TIS:
             p += " t. ! queue ! videoconvert ! ximagesink"
             p += f" t. ! queue ! {conversion} appsink name=sink"
         else:
-            p += f" ! {conversion} appsink name=sink"
+            p += f" ! queue ! {conversion} appsink name=sink"
 
         print(p)
         try:
@@ -133,7 +133,10 @@ class TIS:
         """
         caps = Gst.Caps.from_string(
             "video/x-raw,format=%s,width=%d,height=%d,framerate=%s"
-            % (self.sinkformat.value, self.width, self.height, self.framerate)
+            % (self.sinkformat.value,
+               self.width,
+               self.height,
+               self.framerate)
         )
 
         capsfilter = self.pipeline.get_by_name("caps")
@@ -494,3 +497,29 @@ class FmtDesc:
                 resolution.split("x")[1],
                 fps,
             )
+
+class CustomData:
+    ''' Example class for user data passed to the on new image callback function
+    '''
+    def __init__(self, newImageReceived, image):
+        self.newImageReceived = newImageReceived
+        self.image = image
+        self.busy = False
+
+CD = CustomData(False, None)
+
+def on_new_image(tis, userdata):
+    '''
+    Callback function, which will be called by the TIS class
+    :param tis: the camera TIS class, that calls this callback
+    :param userdata: This is a class with user data, filled by this call.
+    :return:
+    '''
+    # Avoid being called, while the callback is busy
+    if userdata.busy is True:
+        return
+
+    userdata.busy = True
+    userdata.newImageReceived = True
+    userdata.image = tis.get_image()
+    userdata.busy = False

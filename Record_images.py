@@ -38,14 +38,21 @@ state = camera.get_property("tcam-properties-json")
 print(f"State of device is:\n{state}")
 
 # Record images
-duration = 15
+duration = 20
 
 fps = 30
 
 count = 0
 timeout = 1 / fps
 
-folder = Path("/home/matthias/Videos/Test/")
+folder = Path("/home/matthias/Videos/TestShort/")
+
+# Cropping parameters
+
+Left = 250
+Top = 0
+Right = 3850
+Bottom = 3000
 
 time.sleep(2)
 
@@ -53,15 +60,16 @@ start = time.perf_counter()
 while count < duration * fps:
     if Tis.snap_image(timeout):  # Snap an image with one second timeout
         image = Tis.get_image()  # Get the image. It is a numpy array
-        # print("Image ", image.shape, image.dtype)
+        
         filename = folder.joinpath("image" + str(count) + ".jpg").as_posix()
-        image = np.reshape(image, (3000, 4096))
-        # crop image to only keep the center part of the width
-        image = image[100:2900, 300:3700]
-        im = Image.fromarray(image, mode="L")
-        im.save(filename)
-        # cv2.imwrite(filename, image)
-        # time.sleep(timeout)
+        image = Image.fromarray(np.squeeze(image), mode='L')
+        
+        image = image.crop((Left, Top, Right, Bottom))
+        # image = image.resize((Width, Height), 
+        #                      #Image.BICUBIC,
+        #                      )
+        image.save(filename,)
+
         count += 1
 
 stop = time.perf_counter()
