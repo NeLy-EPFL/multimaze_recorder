@@ -11,17 +11,16 @@ import threading
 
 
 presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
-folder = Path("/home/matthias/Videos/Test_Htrigger/")
 
-class CustomData:
-    ''' Example class for user data passed to the on new image callback function
-        It is used for an image counter only. Also for a busy flag, so the callback
-        is not called, while a previons callback call is still active.
-    '''
-    def __init__(self, image):
-        self.imagecounter = 0
-        self.image = image
-        self.busy = False
+# Video parameters
+
+duration = 120
+
+fps = 30
+
+timeout = 1 / fps
+
+folder = Path("/home/matthias/Videos/Test_Htrigger/")
 
 # Cropping parameters
 
@@ -31,35 +30,52 @@ Right = 3850
 Bottom = 3000
 
 
+class CustomData:
+    """Example class for user data passed to the on new image callback function
+    It is used for an image counter only. Also for a busy flag, so the callback
+    is not called, while a previons callback call is still active.
+    """
+
+    def __init__(self, image):
+        self.imagecounter = 0
+        self.image = image
+        self.busy = False
+
 
 def on_new_image(tis, userdata, folder=folder):
-    '''
+    """
     Callback function, which will be called by the TIS class
     :param tis: the camera TIS class, that calls this callback
     :param userdata: This is a class with user data, filled by this call.
     :return:
-    '''
+    """
     # Avoid being called, while the callback is busy
     if userdata.busy is True:
-            return
+        return
 
     userdata.busy = True
     framestart = time.perf_counter()
     userdata.image = tis.get_image()
-    image = tis.get_image()
+    frame = tis.get_image()
 
     # Doing a sample image processing
-    userdata.imagecounter += 1;
+    userdata.imagecounter += 1
     filename = folder.joinpath("image" + str(userdata.imagecounter) + ".jpg").as_posix()
-    image = Image.fromarray(np.squeeze(image), mode='L')
-    
+    image = Image.fromarray(np.squeeze(frame), mode="L")
+
     image = image.crop((Left, Top, Right, Bottom))
-    
+
     # Save image in a separate thread
     threading.Thread(target=image.save, args=(filename,), daemon=True).start()
-    
+
     framestop = time.perf_counter()
-    print(f"Image {userdata.imagecounter} saved. Time: {framestop - framestart:0.4f} seconds")
+    print(
+        f"Image {userdata.imagecounter} saved. Time: {framestop - framestart:0.4f} seconds"
+    )
+    small_image = cv2.resize(frame, (640, 480))
+    cv2.imshow("Window", small_image)
+    cv2.waitKey(1)
+
     userdata.busy = False
 
 
@@ -89,46 +105,24 @@ camera = Tis.get_source()
 state = camera.get_property("tcam-properties-json")
 print(f"State of device is:\n{state}")
 
-# Record images
-duration = 20
-
-fps = 30
-
-timeout = 1 / fps
-
-folder = Path("/home/matthias/Videos/TestShort/")
-
-# Cropping parameters
-
-Left = 250
-Top = 0
-Right = 3850
-Bottom = 3000
-
-time.sleep(2)
-
 # Create an instance of the CustomData class
 CD = CustomData(None)
 
 # Set the callback function
 Tis.set_image_callback(on_new_image, CD)
 
-Tis.set_property("TriggerMode", "On")  # Use this line for GigE cameras
+Tis.set_property("TriggerMode", "On")
 
-# The main loop does nothing, except waiting for an end.
+# Main loop triggering images at 1/fps Hz
 count = 0
-cv2.namedWindow('Window',cv2.WINDOW_NORMAL)
 
 programstart = time.perf_counter()
 while count < duration * fps:
-    Tis.execute_command("TriggerSoftware") # Send a software trigger
+    Tis.execute_command("TriggerSoftware")  # Send a software trigger
     time.sleep(timeout)
     count += 1
-    small_image = cv2.resize(CD.image, (640, 480))
-    cv2.imshow('Window', small_image)
-    cv2.waitKey(1)
 programstop = time.perf_counter()
 print(f"Programm duration: {programstop - programstart:0.4f} seconds")
 
 Tis.stop_pipeline()
-print('Program end')
+print("Program end")
