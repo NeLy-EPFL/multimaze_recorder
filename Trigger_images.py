@@ -8,17 +8,27 @@ import json
 from collections import namedtuple
 import TIS
 import threading
+import os
+import math
+import gi
+gi.require_version("Gst", "1.0")
+gi.require_version("Tcam", "1.0")
+
+from gi.repository import GLib, Gst, Tcam
+#os.environ['GST_DEBUG'] = '3'
 
 
 presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
 
 # Video parameters
 
-duration = 120
+duration = 20
 
 fps = 30
 
 timeout = 1 / fps
+
+#timeout = math.floor(timeout * 1000) / 1000
 
 folder = Path("/home/matthias/Videos/Test_Htrigger/")
 
@@ -75,6 +85,10 @@ def on_new_image(tis, userdata, folder=folder):
     small_image = cv2.resize(frame, (640, 480))
     cv2.imshow("Window", small_image)
     cv2.waitKey(1)
+    
+    displaystop = time.perf_counter()
+    
+    print(f"Display time: {displaystop - framestop:0.4f} seconds")
 
     userdata.busy = False
 
@@ -118,9 +132,12 @@ count = 0
 
 programstart = time.perf_counter()
 while count < duration * fps:
+    triggerstart = time.perf_counter()
     Tis.execute_command("TriggerSoftware")  # Send a software trigger
     time.sleep(timeout)
     count += 1
+    triggerstop = time.perf_counter()
+    print(f"Trigger time: {triggerstop - triggerstart:0.4f} seconds")
 programstop = time.perf_counter()
 print(f"Programm duration: {programstop - programstart:0.4f} seconds")
 

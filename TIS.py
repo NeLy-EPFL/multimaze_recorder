@@ -86,9 +86,9 @@ class TIS:
             conversion += " !"
         p = "tcambin name=source ! capsfilter name=caps"
         if showvideo:
-            p += " ! tee name=t"
-            p += " t. ! queue ! videoconvert ! ximagesink"
-            p += f" t. ! queue ! {conversion} appsink name=sink"
+             p += " ! tee name=t"
+             p += " t. ! queue ! videoconvert ! ximagesink"
+             p += f" t. ! queue ! {conversion} appsink name=sink"
         else:
             p += f" ! queue ! {conversion} appsink name=sink"
 
