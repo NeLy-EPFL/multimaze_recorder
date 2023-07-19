@@ -6,19 +6,41 @@ from PIL import Image
 import json
 import TIS
 from Utilities import *
+import sys
 
 # os.environ['GST_DEBUG'] = '3' # Uncomment this line to see detailed debug information for the Gstreamer pipeline
 
+# Parse command-line arguments
+if len(sys.argv) != 4:
+    print(f"Usage: {sys.argv[0]} FOLDERNAME FPS DURATION")
+    sys.exit(1)
+
+FolderName = sys.argv[1]
+fps = int(sys.argv[2])
+duration = int(sys.argv[3])
 
 # Record images
-duration = 20
-fps = 30
 timeout = 1 / fps
 
 total = duration * fps
 
+LocalPath = Path("/home/matthias/Videos/")
+RemotePath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
+
 presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
-folder = Path("/home/matthias/Videos/TestShort/")
+folder = LocalPath.joinpath(FolderName)
+folder.mkdir(parents=True, exist_ok=True)
+
+# Create arena and corridor folders
+print('Creating remote folders...')
+arenas_folder = RemotePath.joinpath(folder.name)
+arenas_folder.mkdir(parents=True, exist_ok=True)
+for arena in range(1, 10):
+    arena_folder = arenas_folder.joinpath(f"arena{arena}")
+    arena_folder.mkdir(parents=True, exist_ok=True)
+    for corridor in range(1, 7):
+        corridor_folder = arena_folder.joinpath(f"corridor{corridor}")
+        corridor_folder.mkdir(parents=True, exist_ok=True)
 
 # Cropping parameters
 

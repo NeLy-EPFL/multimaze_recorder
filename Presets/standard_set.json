@@ -15,6 +15,10 @@
             "value": "Off"
         },
         {
+            "property": "BlackLevel",
+            "value": 0.0
+        },
+        {
             "property": "ExposureTime",
             "value": 800.0
         },
@@ -24,19 +28,19 @@
         },
         {
             "property": "Gain",
-            "value": 12.5
+            "value": 10.0
         },
         {
             "property": "Gamma",
-            "value": 1.2
+            "value": 1.1
         },
         {
             "property": "ReverseX",
-            "value": "true"
+            "value": false
         },
         {
             "property": "ReverseY",
-            "value": "true"
+            "value": false
         },
         {
             "property": "TriggerMode",
