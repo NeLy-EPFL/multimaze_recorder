@@ -1,6 +1,7 @@
 import time
 from collections import namedtuple
 
+import os
 import re
 import gi
 import numpy
@@ -8,6 +9,8 @@ from enum import Enum
 
 gi.require_version("Gst", "1.0")
 gi.require_version("Tcam", "1.0")
+# Set the GST_DEBUG environment variable
+os.environ['GST_DEBUG'] = '3'
 
 from gi.repository import GLib, Gst, Tcam
 

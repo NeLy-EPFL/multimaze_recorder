@@ -7,6 +7,7 @@ import threading
 import subprocess
 import os
 from pathlib import Path
+import json
 
 class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
@@ -39,6 +40,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(QLabel("Folder:"))
         layout.addWidget(self.folder_lineedit)
         layout.addWidget(button)
+        
 
         widget = QWidget()
         widget.setLayout(layout)
@@ -59,6 +61,17 @@ class MainWindow(QMainWindow):
         open_action = QAction("&Open", self)
         open_action.triggered.connect(self.open_data_folder)
         file_menu.addAction(open_action)
+        
+        # Create a "Save" button and add it to the menu bar
+        save_button = QPushButton("Save")
+        save_button.clicked.connect(self.save_data)
+        menu_bar.setCornerWidget(save_button)
+        
+        # Initialize the table attribute
+        self.table = None
+        
+        # Initialize the experiment_data attribute
+        self.experiment_data = {}
 
     def on_button_clicked(self):
         duration = self.duration_spinbox.value()
@@ -120,12 +133,119 @@ class MainWindow(QMainWindow):
                 for j in range(1, 7):
                     corridor_path = arena_path / f"corridor{j}"
                     corridor_path.mkdir(parents=True, exist_ok=True)
+                    
+        # Create experiment.json in the main folder
+        with open(folder_path / "experiment.json", "w") as f:
+            json.dump({}, f)
+
+        # Create arena.json in each arena folder
+        for i in range(1, 10):
+            arena_path = folder_path / f"arena{i}"
+            with open(arena_path / "arena.json", "w") as f:
+                json.dump({}, f)
+
+            # Create fly.json in each corridor folder
+            for j in range(1, 7):
+                corridor_path = arena_path / f"corridor{j}"
+                with open(corridor_path / "fly.json", "w") as f:
+                    json.dump({}, f)
+
 
     def open_data_folder(self):
         # Prompt the user to select an existing data folder
         folder_path = QFileDialog.getExistingDirectory(self, "Select Data Folder")
+        folder_path = Path(folder_path)
+
+        # Load the data from the experiment.json file
+        with open(folder_path / "experiment.json", "r") as f:
+            experiment_data = json.load(f)
+
+        # Create a table to display the data
+        table = QTableWidget()
+        table.setColumnCount(2)
+        table.setHorizontalHeaderLabels(["Name", "Value"])
+
+        # Allow the user to edit the cells in the table
+        table.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked | QAbstractItemView.EditTrigger.SelectedClicked)
+
+        # If the table is empty, add a row
+        if table.rowCount() == 0:
+            table.insertRow(0)
+        else:
+
+            # Populate the table with data
+            for row, (key, value) in enumerate(experiment_data.items()):
+                table.insertRow(row)
+                table.setItem(row, 0, QTableWidgetItem(key))
+                table.setItem(row, 1, QTableWidgetItem(str(value)))
+            # Add an empty row at the bottom of the table
+            last_row = table.rowCount()
+            table.insertRow(last_row)
+
+        # Create the "Add" button
+        #add_button = QPushButton("Add")
+        #add_button.clicked.connect(self.add_button_clicked)
+
+        # Add the button to the table
+        #last_row = table.rowCount()
+        #table.insertRow(last_row)
+        #table.setCellWidget(last_row, 0, add_button)
+
+        # Add the table to the layout of the central widget
+        layout = self.centralWidget().layout()
+        layout.addWidget(table)
+        
+        # Connect the cellChanged signal to the on_cell_changed method
+        table.cellChanged.connect(self.on_cell_changed)
+        
+    
+
+    def on_cell_changed(self, row, column):
+        # Check if the table attribute is not None
+        if self.table is not None:
+            # Check if the last row was modified
+            if row == self.table.rowCount() - 1:
+                # Add a new empty row at the bottom of the table
+                last_row = self.table.rowCount()
+                self.table.insertRow(last_row)
+
+            
+        
 
         # TODO: Add code to load data from the selected folder
+        
+
+    def save_data(self):
+        # Check if the table attribute is not None
+        if self.table is not None:
+            # Create a new dictionary to store the data from the table
+            new_data = {}
+
+            # Iterate over the rows in the table
+            for row in range(self.table.rowCount()):
+                # Get the key and value from the current row
+                key_item = self.table.item(row, 0)
+                value_item = self.table.item(row, 1)
+
+                # Check if the key and value items are not None
+                if key_item is not None and value_item is not None:
+                    key = key_item.text()
+                    value = value_item.text()
+
+                    # Skip rows with empty keys
+                    if key:
+                        # Add the key and value to the new_data dictionary
+                        new_data[key] = value
+
+            # Update the experiment_data attribute with the new data
+            self.experiment_data = new_data
+
+            # Save the data to the experiment.json file
+            folder_path = QFileDialog.getExistingDirectory(self, "Select Data Folder")
+            folder_path = Path(folder_path)
+            with open(folder_path / "experiment.json", "w") as f:
+                json.dump(self.experiment_data, f)
+
 
 
 app = QApplication(sys.argv)
@@ -143,3 +263,6 @@ window.stop_live_stream()
 
 
 # TODO: Instead of creating a folder only when recording, have a button either to open existing folder or create new folder
+
+
+# TODO: Implement single json file for experiment, arena and corridor data

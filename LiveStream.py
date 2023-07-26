@@ -2,6 +2,7 @@ import cv2
 import json
 import TIS
 from Utilities import *
+import time
 
 presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
 
@@ -24,11 +25,13 @@ Tis.open_device(
 )
 
 Tis.start_pipeline()
+time.sleep(2)
 Tis.applyProperties()
 
 camera = Tis.get_source()
 state = camera.get_property("tcam-properties-json")
 print(f"State of device is:\n{state}")
+
 
 while True:
     if Tis.snap_image(1):

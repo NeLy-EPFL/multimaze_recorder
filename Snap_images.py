@@ -106,4 +106,8 @@ print(f"Captured {count} frames in {stop - start:0.4f} seconds")
 
 # Stop the pipeline and clean up
 Tis.stop_pipeline()
+
+# Rename the folder with '_Recorded' suffix to tag it as a recorded folder
+folder.rename(folder.parent.joinpath(folder.name + "_Recorded"))
+
 print("Program ends")
