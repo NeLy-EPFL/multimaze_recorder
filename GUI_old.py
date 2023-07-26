@@ -69,6 +69,9 @@ class MainWindow(QMainWindow):
         
         # Initialize the table attribute
         self.table = None
+        
+        # Initialize the experiment_data attribute
+        self.experiment_data = {}
 
     def on_button_clicked(self):
         duration = self.duration_spinbox.value()
@@ -111,36 +114,52 @@ class MainWindow(QMainWindow):
             self.live_stream_process.terminate()
 
     def create_data_folder(self):
-        # Mac Datapath
+        #Mac Datapath
         DataPath = Path('/Users/ulric/Documents/TestFolders')
-        # DataPath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
-
+        #DataPath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
+        
         # Prompt the user to enter a folder name
         folder_name, ok = QInputDialog.getText(self, "New Data Folder", "Enter folder name:")
-
+        
         # Create the data folder with the specified name
         if ok and folder_name:
             folder_path = DataPath / folder_name
             folder_path.mkdir(parents=True, exist_ok=True)
-
+            
             # Create subdirectories for each arena
             for i in range(1, 10):
                 arena_path = folder_path / f"arena{i}"
                 arena_path.mkdir(parents=True, exist_ok=True)
-
+                
                 # Create subdirectories for each corridor
                 for j in range(1, 7):
                     corridor_path = arena_path / f"corridor{j}"
                     corridor_path.mkdir(parents=True, exist_ok=True)
-
+                    
         # Create experiment.json in the main folder
-        metadata = {"Variable": []}
+        metadata = {
+            "Variable": [],
+            "Experiment": [],
+        }
         for i in range(1, 10):
-            for j in range(1, 7):
-                metadata[f"Arena{i}_Corridor{j}"] = []
+            metadata[f"arena{i}"] = {
+                f"arena{i}_corridor{j}": [] for j in range(1, 7)
+            }
         with open(folder_path / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=4)
 
+
+        # Create arena.json in each arena folder
+        # for i in range(1, 10):
+        #     arena_path = folder_path / f"arena{i}"
+        #     with open(arena_path / "arena.json", "w") as f:
+        #         json.dump({}, f)
+
+        #     # Create fly.json in each corridor folder
+        #     for j in range(1, 7):
+        #         corridor_path = arena_path / f"corridor{j}"
+        #         with open(corridor_path / "fly.json", "w") as f:
+        #             json.dump({}, f)
 
 
     def open_data_folder(self):
@@ -148,30 +167,47 @@ class MainWindow(QMainWindow):
         folder_path = QFileDialog.getExistingDirectory(self, "Select Data Folder")
         folder_path = Path(folder_path)
 
-        # Load the metadata from the selected folder
-        with open(folder_path / "metadata.json", "r") as f:
-            metadata = json.load(f)
+        # Load the data from the experiment.json file
+        with open(folder_path / "experiment.json", "r") as f:
+            experiment_data = json.load(f)
 
-        # Create a table widget to display the data
+        # Create a table to display the data
         table = QTableWidget()
-        column_count = 1 + 9 * 6
-        column_labels = ["Variable"]
-        for i in range(1, 10):
-            for j in range(1, 7):
-                column_labels.append(f"Arena{i}_Corridor{j}")
-        table.setColumnCount(column_count)
-        table.setHorizontalHeaderLabels(column_labels)
+        table.setColumnCount(2)
+        table.setHorizontalHeaderLabels(["Name", "Value"])
+
+        # Allow the user to edit the cells in the table
+        table.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked | QAbstractItemView.EditTrigger.SelectedClicked)
+
+        # If the table is empty, add a row
+        if table.rowCount() == 0:
+            table.insertRow(0)
+        else:
+
+            # Populate the table with data
+            for row, (key, value) in enumerate(experiment_data.items()):
+                table.insertRow(row)
+                table.setItem(row, 0, QTableWidgetItem(key))
+                table.setItem(row, 1, QTableWidgetItem(str(value)))
+            # Add an empty row at the bottom of the table
+            last_row = table.rowCount()
+            table.insertRow(last_row)
+
+        # Create the "Add" button
+        #add_button = QPushButton("Add")
+        #add_button.clicked.connect(self.add_button_clicked)
+
+        # Add the button to the table
+        #last_row = table.rowCount()
+        #table.insertRow(last_row)
+        #table.setCellWidget(last_row, 0, add_button)
 
         # Add the table to the layout of the central widget
         layout = self.centralWidget().layout()
         layout.addWidget(table)
-    # TODO: implement table filling, saving, reloading
-    # TODO: Empty table when GUI launches
-    # TODO: Color code
-    # TODO: Buttons to fill whole line or specific arenas with some value
-
-
-
+        
+        # Connect the cellChanged signal to the on_cell_changed method
+        table.cellChanged.connect(self.on_cell_changed)
         
     
 
