@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import json
 
+
 class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
@@ -20,14 +21,15 @@ class MainWindow(QMainWindow):
         # Create widgets
         self.duration_spinbox = QSpinBox()
         self.duration_spinbox.setRange(0, 10000)
-        self.duration_spinbox.setValue(900)
+        self.duration_spinbox.setValue(7200)
 
         self.fps_spinbox = QSpinBox()
         self.fps_spinbox.setRange(0, 120)
         self.fps_spinbox.setValue(30)
 
         self.folder_lineedit = QLineEdit()
-
+        self.folder_lineedit.setReadOnly(True)
+        
         button = QPushButton("Start Recording")
         button.clicked.connect(self.on_button_clicked)
 
@@ -40,7 +42,6 @@ class MainWindow(QMainWindow):
         layout.addWidget(QLabel("Folder:"))
         layout.addWidget(self.folder_lineedit)
         layout.addWidget(button)
-        
 
         widget = QWidget()
         widget.setLayout(layout)
@@ -61,15 +62,34 @@ class MainWindow(QMainWindow):
         open_action = QAction("&Open", self)
         open_action.triggered.connect(self.open_data_folder)
         file_menu.addAction(open_action)
-        
-        # Create a "Save" button and add it to the menu bar
-        save_button = QPushButton("Save")
-        save_button.clicked.connect(self.save_data)
-        menu_bar.setCornerWidget(save_button)
-        
-        # Initialize the table attribute
-        self.table = None
 
+        save_action = QAction("&Save", self)
+        save_action.triggered.connect(self.save_data)
+        file_menu.addAction(save_action)
+
+        # # Create an empty table with the same characteristics as the metadata.json file
+        # table = QTableWidget()
+        # column_count = 1 + 9 * 6
+        # column_labels = ["Variable"]
+        # for i in range(1, 10):
+        #     for j in range(1, 7):
+        #         column_labels.append(f"Arena{i}_Corridor{j}")
+        # table.setColumnCount(column_count)
+        # table.setHorizontalHeaderLabels(column_labels)
+
+        # # Store a reference to the table in an attribute
+        # self.table = table
+
+        # # Add empty rows to the table
+        # self.add_empty_rows(10)
+
+        # # Add the table to the layout
+        # layout.addWidget(table)
+        
+        # Intialize the updatable attributes to None
+        self.table = None
+        self.folder_path = None
+        
     def on_button_clicked(self):
         duration = self.duration_spinbox.value()
         fps = self.fps_spinbox.value()
@@ -123,6 +143,9 @@ class MainWindow(QMainWindow):
             folder_path = DataPath / folder_name
             folder_path.mkdir(parents=True, exist_ok=True)
 
+            # Update the folder line edit with the full path to the new data folder
+            self.folder_lineedit.setText(str(folder_path))
+
             # Create subdirectories for each arena
             for i in range(1, 10):
                 arena_path = folder_path / f"arena{i}"
@@ -133,20 +156,25 @@ class MainWindow(QMainWindow):
                     corridor_path = arena_path / f"corridor{j}"
                     corridor_path.mkdir(parents=True, exist_ok=True)
 
-        # Create experiment.json in the main folder
-        metadata = {"Variable": []}
-        for i in range(1, 10):
-            for j in range(1, 7):
-                metadata[f"Arena{i}_Corridor{j}"] = []
-        with open(folder_path / "metadata.json", "w") as f:
-            json.dump(metadata, f, indent=4)
+            # Create experiment.json in the main folder
+            metadata = {"Variable": []}
+            for i in range(1, 10):
+                for j in range(1, 7):
+                    metadata[f"Arena{i}_Corridor{j}"] = []
+            with open(folder_path / "metadata.json", "w") as f:
+                json.dump(metadata, f, indent=4)
 
+            # Open the new data folder
+            self.open_data_folder(folder_path)
 
-
-    def open_data_folder(self):
-        # Prompt the user to select an existing data folder
-        folder_path = QFileDialog.getExistingDirectory(self, "Select Data Folder")
+    def open_data_folder(self, folder_path=None):
+        if not folder_path:
+            # Prompt the user to select an existing data folder
+            folder_path = QFileDialog.getExistingDirectory(self, "Select Data Folder")
         folder_path = Path(folder_path)
+        
+        # Store the folder path in an attribute
+        self.folder_path = folder_path
 
         # Load the metadata from the selected folder
         with open(folder_path / "metadata.json", "r") as f:
@@ -162,65 +190,208 @@ class MainWindow(QMainWindow):
         table.setColumnCount(column_count)
         table.setHorizontalHeaderLabels(column_labels)
 
-        # Add the table to the layout of the central widget
+        # Add rows to the table for each variable in the metadata
+        for variable in metadata["Variable"]:
+            row = table.rowCount()
+            table.insertRow(row)
+            variable_item = QTableWidgetItem(variable)
+            table.setItem(row, 0, variable_item)
+
+            for col in range(1, table.columnCount()):
+                column_label = table.horizontalHeaderItem(col).text()
+                value = metadata[column_label][row]
+                value_item = QTableWidgetItem(value)
+                table.setItem(row, col, value_item)
+
+        # Get the layout of the central widget
         layout = self.centralWidget().layout()
+
+        # Remove the existing table from the layout (if any)
+        if self.table:
+            layout.removeWidget(self.table)
+            self.table.deleteLater()
+
+        # Add the new table to the layout
         layout.addWidget(table)
-    # TODO: implement table filling, saving, reloading
-    # TODO: Empty table when GUI launches
-    # TODO: Color code
+
+        # Store a reference to the new table in an attribute
+        self.table = table
+
+        # Add empty rows to the table
+        self.add_empty_rows(10)
+
+        # Set the background color of the cells
+        self.set_cell_colors()
+
+        # Split the table into parts
+        window.split_table(3)
+        
+        # Remove the existing information panel from the layout (if any)
+        if hasattr(self, "info_panel"):
+            layout.removeWidget(self.info_panel)
+            self.info_panel.deleteLater()
+        
+        # Create an information panel widget
+        info_panel = QWidget()
+        info_layout = QVBoxLayout()
+        info_panel.setLayout(info_layout)
+
+        # Add a label to display the folder path
+        folder_label = QLabel(f"Folder: {folder_path}")
+             
+        info_layout.addWidget(folder_label)
+
+        # Check if the subfolders contain videos and .h5 files
+        full = True
+        processed = True
+        for i in range(1, 10):
+            for j in range(1, 7):
+                corridor_path = folder_path / f"arena{i}" / f"corridor{j}"
+                if not any(corridor_path.glob("*.mp4")):
+                    full = False
+                if not any(corridor_path.glob("*.h5")):
+                    processed = False
+
+        # Add labels to display the status of the subfolders
+        full_label = QLabel(f"Full: {'Yes' if full else 'No'}")
+        processed_label = QLabel(f"Processed: {'Yes' if processed else 'No'}")
+        info_layout.addWidget(full_label)
+        info_layout.addWidget(processed_label)
+
+        self.info_panel = info_panel
+        
+        # Add the information panel to the layout
+        
+        layout.addWidget(info_panel)
+        
+
+        # Set the folder line edit to the selected folder
+        self.folder_lineedit.setText(str(folder_path.name))
+
     # TODO: Buttons to fill whole line or specific arenas with some value
+    # TODO: make the split table function work
 
+    def add_empty_rows(self, row_count):
+        for _ in range(row_count):
+            row = self.table.rowCount()
+            self.table.insertRow(row)
 
+    def set_cell_colors(self):
+        # Define a list of colors to use for each arena
+        colors = [
+            "#ff0000",
+            "#00ff00",
+            "#0000ff",
+            "#ffff00",
+            "#ff00ff",
+            "#00ffff",
+            "#ffffff",
+            "#000000",
+            "#808080",
+        ]
 
-        
-    
+        # Iterate over the cells of the table
+        for row in range(self.table.rowCount()):
+            for col in range(1, self.table.columnCount()):
+                # Get the arena number from the column label
+                column_label = self.table.horizontalHeaderItem(col).text()
+                arena_number = int(column_label.split("_")[0][5:])
 
-    def on_cell_changed(self, row, column):
-        # Check if the table attribute is not None
-        if self.table is not None:
-            # Check if the last row was modified
-            if row == self.table.rowCount() - 1:
-                # Add a new empty row at the bottom of the table
-                last_row = self.table.rowCount()
-                self.table.insertRow(last_row)
+                # Get the color for this arena
+                color = colors[arena_number - 1]
 
-            
-        
+                # Set the background color of the cell
+                item = self.table.item(row, col)
+                if item:
+                    item.setBackground(QColor(color))
 
-        # TODO: Add code to load data from the selected folder
-        
+    def split_table(self, parts):
+        # Calculate the number of columns per part
+        columns_per_part = self.table.columnCount() // parts
+
+        # Create a list to store the table widgets
+        tables = []
+
+        # Create a table widget for each part
+        for i in range(parts):
+            # Create a new table widget
+            table = QTableWidget()
+            table.setColumnCount(columns_per_part)
+            table.setRowCount(self.table.rowCount())
+
+            # Set the horizontal header labels
+            column_labels = [
+                self.table.horizontalHeaderItem(j).text()
+                for j in range(i * columns_per_part, (i + 1) * columns_per_part)
+            ]
+            table.setHorizontalHeaderLabels(column_labels)
+
+            # Copy the data from the original table to the new table
+            for row in range(self.table.rowCount()):
+                for col in range(columns_per_part):
+                    item = self.table.item(row, i * columns_per_part + col)
+                    if item:
+                        table.setItem(row, col, QTableWidgetItem(item))
+
+            # Add the new table to the list of tables
+            tables.append(table)
+
+        # Create a window for each table
+        for i, table in enumerate(tables):
+            window = QMainWindow()
+            window.setWindowTitle(f"Table Part {i + 1}")
+            window.setCentralWidget(table)
+            window.show()
+
+        def on_cell_changed(self, row, column):
+            # Check if the table attribute is not None
+            if self.table is not None:
+                # Check if the last row was modified
+                if row == self.table.rowCount() - 1:
+                    # Add a new empty row at the bottom of the table
+                    last_row = self.table.rowCount()
+                    self.table.insertRow(last_row)
 
     def save_data(self):
-        # Check if the table attribute is not None
-        if self.table is not None:
-            # Create a new dictionary to store the data from the table
-            new_data = {}
+        # Get the folder path from the line edit
+        folder_path = self.folder_path
 
-            # Iterate over the rows in the table
-            for row in range(self.table.rowCount()):
-                # Get the key and value from the current row
-                key_item = self.table.item(row, 0)
-                value_item = self.table.item(row, 1)
+        # If no folder path has been entered, prompt the user to choose a folder name
+        if not folder_path:
+            # Call the create_data_folder method to create a new data folder
+            self.create_data_folder()
 
-                # Check if the key and value items are not None
-                if key_item is not None and value_item is not None:
-                    key = key_item.text()
-                    value = value_item.text()
+            # Get the new folder path from the line edit
+            folder_path = Path(self.folder_lineedit.text())
+            print(folder_path)
 
-                    # Skip rows with empty keys
-                    if key:
-                        # Add the key and value to the new_data dictionary
-                        new_data[key] = value
+        # Load the existing metadata
+        with open(folder_path / "metadata.json", "r") as f:
+            metadata = json.load(f)
 
-            # Update the experiment_data attribute with the new data
-            self.experiment_data = new_data
+        # Clear the existing data from the metadata
+        for key in metadata:
+            metadata[key] = []
 
-            # Save the data to the experiment.json file
-            folder_path = QFileDialog.getExistingDirectory(self, "Select Data Folder")
-            folder_path = Path(folder_path)
-            with open(folder_path / "experiment.json", "w") as f:
-                json.dump(self.experiment_data, f)
+        # Update the metadata with the data from the table
+        for row in range(self.table.rowCount()):
+            variable_item = self.table.item(row, 0)
+            if variable_item:
+                variable = variable_item.text()
+                metadata["Variable"].append(variable)
 
+                for col in range(1, self.table.columnCount()):
+                    value_item = self.table.item(row, col)
+                    column_label = self.table.horizontalHeaderItem(col).text()
+                    if value_item:
+                        value = value_item.text()
+                        metadata[column_label].append(value)
+                    else:
+                        metadata[column_label].append("")
+
+        # Save the updated metadata
+        with open(folder_path / "metadata.json", "w") as f:
+            json.dump(metadata, f, indent=4)
 
 
 app = QApplication(sys.argv)
