@@ -9,109 +9,112 @@ import os
 from pathlib import Path
 import json
 
+
 class CustomTableWidget(QTableWidget):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-        def contextMenuEvent(self, event):
-            # Get the row and column that was clicked
-            row = self.rowAt(event.y())
-            col = self.columnAt(event.x())
+    def contextMenuEvent(self, event):
+        # Get the row and column that was clicked
+        row = self.rowAt(event.y())
+        col = self.columnAt(event.x())
 
-            # Create a context menu
-            menu = QMenu(self)
+        # Create a context menu
+        menu = QMenu(self)
 
-            # Add an action to fill all arenas
-            fill_all_action = QAction("Fill Experiment", self)
-            fill_all_action.triggered.connect(lambda checked, row=row: self.fill_experiment(row))
-            menu.addAction(fill_all_action)
+        # Add an action to fill all arenas
+        fill_all_action = QAction("Fill Experiment", self)
+        fill_all_action.triggered.connect(
+            lambda checked, row=row: self.fill_experiment(row)
+        )
+        menu.addAction(fill_all_action)
 
-            # Add a separator
-            menu.addSeparator()
+        # Add a separator
+        menu.addSeparator()
 
-            # Add an action to fill the selected arena
-            fill_arena_action = QAction("Fill Arena", self)
-            fill_arena_action.triggered.connect(lambda checked, col=col, row=row: self.fill_arena(col, row))
-            menu.addAction(fill_arena_action)
+        # Add an action to fill the selected arena
+        fill_arena_action = QAction("Fill Arena", self)
+        fill_arena_action.triggered.connect(
+            lambda checked, col=col, row=row: self.fill_arena(col, row)
+        )
+        menu.addAction(fill_arena_action)
 
-            # Show the context menu at the current mouse position
-            menu.exec(event.globalPos())
+        # Show the context menu at the current mouse position
+        menu.exec(event.globalPos())
 
-            
-        def fill_arena(self, col, row):
-            # Get the arena number from the column label
+    def fill_arena(self, col, row):
+        # Get the arena number from the column label
+        column_label = self.horizontalHeaderItem(col).text()
+        arena_number = int(column_label.split("_")[0][5:])
+
+        # Prompt the user to enter a value
+        value, ok = QInputDialog.getText(self, f"Fill Arena {arena_number}", "Value:")
+        if not ok:
+            return
+
+        # Find the columns for the given arena
+        for col in range(1, self.columnCount()):
             column_label = self.horizontalHeaderItem(col).text()
-            arena_number = int(column_label.split("_")[0][5:])
-
-            # Prompt the user to enter a value
-            value, ok = QInputDialog.getText(self, f"Fill Arena {arena_number}", "Value:")
-            if not ok:
-                return
-
-            # Find the columns for the given arena
-            for col in range(1, self.columnCount()):
-                column_label = self.horizontalHeaderItem(col).text()
-                if column_label.startswith(f"Arena{arena_number}_"):
-                    # Set the value for the given row in the column
-                    item = self.item(row, col)
-                    if item:
-                        item.setText(value)
-
-        def fill_experiment(self, row):
-            # Prompt the user to enter a value
-            value, ok = QInputDialog.getText(self, "Fill Experiment", "Value:")
-            if not ok:
-                return
-
-            # Set the value for all cells in the given row
-            for col in range(1, self.columnCount()):
+            if column_label.startswith(f"Arena{arena_number}_"):
+                # Set the value for the given row in the column
                 item = self.item(row, col)
                 if item:
-                    item.setText(value)   
-        def add_empty_rows(self, row_count):
-            for _ in range(row_count):
-                row = self.rowCount()
-                self.insertRow(row)
-                # Add empty items to each cell of the new row
-                for col in range(self.columnCount()):
-                    item = QTableWidgetItem("")
-                    self.setItem(row, col, item)
+                    item.setText(value)
 
-        def set_cell_colors(self):
-            # Define a list of colors to use for each arena
-            colors = [
-                "#F7DC6F",
-                "#82E0AA",
-                "#85C1E9",
-                "#BB8FCE",
-                "#F1948A",
-                "#E5E7E9",
-                "#D35400",
-                "#5D6D7E",
-                "#1ABC9C"
-            ]
+    def fill_experiment(self, row):
+        # Prompt the user to enter a value
+        value, ok = QInputDialog.getText(self, "Fill Experiment", "Value:")
+        if not ok:
+            return
 
-            # Iterate over the cells of the table
-            for row in range(self.rowCount()):
-                for col in range(1, self.columnCount()):
-                    # Get the arena number from the column label
-                    column_label = self.horizontalHeaderItem(col).text()
-                    arena_number = int(column_label.split("_")[0][5:])
+        # Set the value for all cells in the given row
+        for col in range(1, self.columnCount()):
+            item = self.item(row, col)
+            if item:
+                item.setText(value)
 
-                    # Get the color for this arena
-                    color = colors[arena_number - 1]
+    def add_empty_rows(self, row_count):
+        for _ in range(row_count):
+            row = self.rowCount()
+            self.insertRow(row)
+            # Add empty items to each cell of the new row
+            for col in range(self.columnCount()):
+                item = QTableWidgetItem("")
+                self.setItem(row, col, item)
 
-                    # Set the background color of the cell
-                    item = self.item(row, col)
-                    if item:
-                        item.setBackground(QColor(color))
-   
-        
+    def set_cell_colors(self):
+        # Define a list of colors to use for each arena
+        colors = [
+            "#F7DC6F",
+            "#82E0AA",
+            "#85C1E9",
+            "#BB8FCE",
+            "#F1948A",
+            "#E5E7E9",
+            "#D35400",
+            "#5D6D7E",
+            "#1ABC9C",
+        ]
+
+        # Iterate over the cells of the table
+        for row in range(self.rowCount()):
+            for col in range(1, self.columnCount()):
+                # Get the arena number from the column label
+                column_label = self.horizontalHeaderItem(col).text()
+                arena_number = int(column_label.split("_")[0][5:])
+
+                # Get the color for this arena
+                color = colors[arena_number - 1]
+
+                # Set the background color of the cell
+                item = self.item(row, col)
+                if item:
+                    item.setBackground(QColor(color))
+
 
 class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
-        
 
         self.setWindowTitle("Multimaze Recorder")
         # Set the default size of the window
@@ -128,7 +131,7 @@ class MainWindow(QMainWindow):
 
         self.folder_lineedit = QLineEdit()
         self.folder_lineedit.setReadOnly(True)
-        
+
         button = QPushButton("Start Recording")
         button.clicked.connect(self.on_button_clicked)
 
@@ -165,7 +168,7 @@ class MainWindow(QMainWindow):
         save_action = QAction("&Save", self)
         save_action.triggered.connect(self.save_data)
         file_menu.addAction(save_action)
-        
+
         # Create an empty table
         self.table = self.create_table()
 
@@ -173,9 +176,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.table)
 
         # Intialize the updatable attributes to None
-        
+
         self.folder_path = None
-        
+
     def create_table(self, metadata=None):
         # Create a table widget to display the data
         table = CustomTableWidget()
@@ -275,11 +278,13 @@ class MainWindow(QMainWindow):
 
     def create_data_folder(self, metadata=None):
         # Mac Datapath
-        DataPath = Path('/Users/ulric/Documents/TestFolders')
+        DataPath = Path("/Users/ulric/Documents/TestFolders")
         # DataPath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
 
         # Prompt the user to enter a folder name
-        folder_name, ok = QInputDialog.getText(self, "New Data Folder", "Enter folder name:")
+        folder_name, ok = QInputDialog.getText(
+            self, "New Data Folder", "Enter folder name:"
+        )
 
         # Create the data folder with the specified name
         if ok and folder_name:
@@ -321,7 +326,7 @@ class MainWindow(QMainWindow):
         # Check if a valid folder was selected
         if not folder_path:
             return
-        
+
         # Convert the folder path to a Path object
         folder_path = Path(folder_path)
         # Store the folder path in an attribute
@@ -347,12 +352,12 @@ class MainWindow(QMainWindow):
 
         # Store a reference to the new table in an attribute
         self.table = table
-        
+
         # Remove the existing information panel from the layout (if any)
         if hasattr(self, "info_panel"):
             layout.removeWidget(self.info_panel)
             self.info_panel.deleteLater()
-        
+
         # Create an information panel widget
         info_panel = QWidget()
         info_layout = QVBoxLayout()
@@ -360,7 +365,7 @@ class MainWindow(QMainWindow):
 
         # Add a label to display the folder path
         folder_label = QLabel(f"Folder: {folder_path}")
-             
+
         info_layout.addWidget(folder_label)
 
         # Check if the subfolders contain videos and .h5 files
@@ -381,11 +386,10 @@ class MainWindow(QMainWindow):
         info_layout.addWidget(processed_label)
 
         self.info_panel = info_panel
-        
+
         # Add the information panel to the layout
-        
+
         layout.addWidget(info_panel)
-        
 
         # Set the folder line edit to the selected folder
         self.folder_lineedit.setText(str(folder_path.name))
@@ -455,7 +459,7 @@ class MainWindow(QMainWindow):
             # Save the updated metadata
             with open(folder_path / "metadata.json", "w") as f:
                 json.dump(metadata, f, indent=4)
-                
+
     def has_unsaved_changes(self):
         # Get the folder path from the line edit
         folder_path = self.folder_path
