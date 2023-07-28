@@ -312,11 +312,18 @@ class MainWindow(QMainWindow):
             self.open_data_folder(folder_path)
 
     def open_data_folder(self, folder_path=None):
+        # Prompt the user to select a folder if no folder path was provided
         if not folder_path:
-            # Prompt the user to select an existing data folder
-            folder_path = QFileDialog.getExistingDirectory(self, "Select Data Folder")
-        folder_path = Path(folder_path)
+            folder_path = QFileDialog.getExistingDirectory(
+                self, "Open Data Folder", str(Path.home())
+            )
 
+        # Check if a valid folder was selected
+        if not folder_path:
+            return
+        
+        # Convert the folder path to a Path object
+        folder_path = Path(folder_path)
         # Store the folder path in an attribute
         self.folder_path = folder_path
 
@@ -519,9 +526,3 @@ app.exec()
 
 # Stop the live stream when the application exits
 window.stop_live_stream()
-
-
-# TODO: Instead of creating a folder only when recording, have a button either to open existing folder or create new folder
-
-
-# TODO: Implement single json file for experiment, arena and corridor data
