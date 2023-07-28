@@ -9,6 +9,99 @@ import os
 from pathlib import Path
 import json
 
+class CustomTableWidget(QTableWidget):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+        def contextMenuEvent(self, event):
+            # Get the row that was clicked
+            row = self.rowAt(event.y())
+
+            # Create a context menu
+            menu = QMenu(self)
+
+            # Add an action to fill all arenas
+            fill_all_action = QAction("Fill Experiment", self)
+            fill_all_action.triggered.connect(lambda checked, row=row: self.fill_experiment(row))
+            menu.addAction(fill_all_action)
+
+            # Add a separator
+            menu.addSeparator()
+
+            # Add an action for each arena
+            for i in range(1, 10):
+                action = QAction(f"Fill Arena {i}", self)
+                action.triggered.connect(lambda checked, i=i, row=row: self.fill_arena(i, row))
+                menu.addAction(action)
+
+            # Show the context menu at the current mouse position
+            menu.exec(event.globalPos())
+
+        def fill_arena(self, arena, row):
+            # Prompt the user to enter a value
+            value, ok = QInputDialog.getText(self, f"Fill Arena {arena}", "Value:")
+            if not ok:
+                return
+
+            # Find the columns for the given arena
+            for col in range(1, self.columnCount()):
+                column_label = self.horizontalHeaderItem(col).text()
+                if column_label.startswith(f"Arena{arena}_"):
+                    # Set the value for the given row in the column
+                    item = self.item(row, col)
+                    if item:
+                        item.setText(value)
+
+        def fill_experiment(self, row):
+            # Prompt the user to enter a value
+            value, ok = QInputDialog.getText(self, "Fill Experiment", "Value:")
+            if not ok:
+                return
+
+            # Set the value for all cells in the given row
+            for col in range(1, self.columnCount()):
+                item = self.item(row, col)
+                if item:
+                    item.setText(value)   
+        def add_empty_rows(self, row_count):
+            for _ in range(row_count):
+                row = self.rowCount()
+                self.insertRow(row)
+                # Add empty items to each cell of the new row
+                for col in range(self.columnCount()):
+                    item = QTableWidgetItem("")
+                    self.setItem(row, col, item)
+
+        def set_cell_colors(self):
+            # Define a list of colors to use for each arena
+            colors = [
+                "#F7DC6F",
+                "#82E0AA",
+                "#85C1E9",
+                "#BB8FCE",
+                "#F1948A",
+                "#E5E7E9",
+                "#D35400",
+                "#5D6D7E",
+                "#1ABC9C"
+            ]
+
+            # Iterate over the cells of the table
+            for row in range(self.rowCount()):
+                for col in range(1, self.columnCount()):
+                    # Get the arena number from the column label
+                    column_label = self.horizontalHeaderItem(col).text()
+                    arena_number = int(column_label.split("_")[0][5:])
+
+                    # Get the color for this arena
+                    color = colors[arena_number - 1]
+
+                    # Set the background color of the cell
+                    item = self.item(row, col)
+                    if item:
+                        item.setBackground(QColor(color))
+   
+        
 
 class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
@@ -66,30 +159,71 @@ class MainWindow(QMainWindow):
         save_action = QAction("&Save", self)
         save_action.triggered.connect(self.save_data)
         file_menu.addAction(save_action)
-
-        # # Create an empty table with the same characteristics as the metadata.json file
-        # table = QTableWidget()
-        # column_count = 1 + 9 * 6
-        # column_labels = ["Variable"]
-        # for i in range(1, 10):
-        #     for j in range(1, 7):
-        #         column_labels.append(f"Arena{i}_Corridor{j}")
-        # table.setColumnCount(column_count)
-        # table.setHorizontalHeaderLabels(column_labels)
-
-        # # Store a reference to the table in an attribute
-        # self.table = table
-
-        # # Add empty rows to the table
-        # self.add_empty_rows(10)
-
-        # # Add the table to the layout
-        # layout.addWidget(table)
         
+        # Create an empty table
+        self.table = self.create_table()
+
+        # Add the table to the layout
+        layout.addWidget(self.table)
+
         # Intialize the updatable attributes to None
-        self.table = None
+        
         self.folder_path = None
         
+    def create_table(self, metadata=None):
+        # Create a table widget to display the data
+        table = CustomTableWidget()
+        column_count = 1 + 9 * 6
+        column_labels = ["Variable"]
+        for i in range(1, 10):
+            for j in range(1, 7):
+                column_labels.append(f"Arena{i}_Corridor{j}")
+        table.setColumnCount(column_count)
+        table.setHorizontalHeaderLabels(column_labels)
+
+        # Add empty rows and items to the table
+        for row in range(10):
+            table.insertRow(row)
+            for col in range(table.columnCount()):
+                item = QTableWidgetItem("")
+                table.setItem(row, col, item)
+
+        # Check if metadata was provided
+        if metadata:
+            # Fill the "Variable" column with the values from the "Variable" key in the metadata
+            for row, value in enumerate(metadata["Variable"]):
+                value_item = QTableWidgetItem(value)
+                table.setItem(row, 0, value_item)
+
+            # Fill the other columns with the values from the other keys in the metadata
+            col = 1
+            for variable, values in metadata.items():
+                if variable != "Variable":
+                    for row, value in enumerate(values):
+                        value_item = QTableWidgetItem(value)
+                        table.setItem(row, col, value_item)
+                    col += 1
+
+        # Resize the rows and columns to fit their contents
+        table.resizeRowsToContents()
+        table.resizeColumnsToContents()
+
+        # Set a smaller font size for the table
+        font = table.font()
+        font.setPointSize(10)
+        table.setFont(font)
+
+        # Set a larger minimum size for the table widget
+        table.setMinimumSize(800, 600)
+
+        # Add empty rows to the table
+        table.add_empty_rows(10)
+
+        # Set the background color of the cells
+        table.set_cell_colors()
+
+        return table
+
     def on_button_clicked(self):
         duration = self.duration_spinbox.value()
         fps = self.fps_spinbox.value()
@@ -172,7 +306,7 @@ class MainWindow(QMainWindow):
             # Prompt the user to select an existing data folder
             folder_path = QFileDialog.getExistingDirectory(self, "Select Data Folder")
         folder_path = Path(folder_path)
-        
+
         # Store the folder path in an attribute
         self.folder_path = folder_path
 
@@ -180,28 +314,8 @@ class MainWindow(QMainWindow):
         with open(folder_path / "metadata.json", "r") as f:
             metadata = json.load(f)
 
-        # Create a table widget to display the data
-        table = QTableWidget()
-        column_count = 1 + 9 * 6
-        column_labels = ["Variable"]
-        for i in range(1, 10):
-            for j in range(1, 7):
-                column_labels.append(f"Arena{i}_Corridor{j}")
-        table.setColumnCount(column_count)
-        table.setHorizontalHeaderLabels(column_labels)
-
-        # Add rows to the table for each variable in the metadata
-        for variable in metadata["Variable"]:
-            row = table.rowCount()
-            table.insertRow(row)
-            variable_item = QTableWidgetItem(variable)
-            table.setItem(row, 0, variable_item)
-
-            for col in range(1, table.columnCount()):
-                column_label = table.horizontalHeaderItem(col).text()
-                value = metadata[column_label][row]
-                value_item = QTableWidgetItem(value)
-                table.setItem(row, col, value_item)
+        # Create a new table using the loaded metadata
+        table = self.create_table(metadata)
 
         # Get the layout of the central widget
         layout = self.centralWidget().layout()
@@ -216,12 +330,6 @@ class MainWindow(QMainWindow):
 
         # Store a reference to the new table in an attribute
         self.table = table
-
-        # Add empty rows to the table
-        self.add_empty_rows(10)
-
-        # Set the background color of the cells
-        self.set_cell_colors()
 
         # Split the table into parts
         window.split_table(3)
@@ -270,40 +378,6 @@ class MainWindow(QMainWindow):
 
     # TODO: Buttons to fill whole line or specific arenas with some value
     # TODO: make the split table function work
-
-    def add_empty_rows(self, row_count):
-        for _ in range(row_count):
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-
-    def set_cell_colors(self):
-        # Define a list of colors to use for each arena
-        colors = [
-            "#ff0000",
-            "#00ff00",
-            "#0000ff",
-            "#ffff00",
-            "#ff00ff",
-            "#00ffff",
-            "#ffffff",
-            "#000000",
-            "#808080",
-        ]
-
-        # Iterate over the cells of the table
-        for row in range(self.table.rowCount()):
-            for col in range(1, self.table.columnCount()):
-                # Get the arena number from the column label
-                column_label = self.table.horizontalHeaderItem(col).text()
-                arena_number = int(column_label.split("_")[0][5:])
-
-                # Get the color for this arena
-                color = colors[arena_number - 1]
-
-                # Set the background color of the cell
-                item = self.table.item(row, col)
-                if item:
-                    item.setBackground(QColor(color))
 
     def split_table(self, parts):
         # Calculate the number of columns per part
@@ -365,33 +439,35 @@ class MainWindow(QMainWindow):
             folder_path = Path(self.folder_lineedit.text())
             print(folder_path)
 
-        # Load the existing metadata
-        with open(folder_path / "metadata.json", "r") as f:
-            metadata = json.load(f)
-
-        # Clear the existing data from the metadata
-        for key in metadata:
-            metadata[key] = []
+        # Create a new metadata dictionary
+        metadata = {"Variable": []}
+        for i in range(1, 10):
+            for j in range(1, 7):
+                metadata[f"Arena{i}_Corridor{j}"] = []
 
         # Update the metadata with the data from the table
+        variables = set()
         for row in range(self.table.rowCount()):
             variable_item = self.table.item(row, 0)
             if variable_item:
                 variable = variable_item.text()
-                metadata["Variable"].append(variable)
+                if variable and variable not in variables:
+                    variables.add(variable)
+                    metadata["Variable"].append(variable)
 
-                for col in range(1, self.table.columnCount()):
-                    value_item = self.table.item(row, col)
-                    column_label = self.table.horizontalHeaderItem(col).text()
-                    if value_item:
-                        value = value_item.text()
-                        metadata[column_label].append(value)
-                    else:
-                        metadata[column_label].append("")
+                    for col in range(1, self.table.columnCount()):
+                        value_item = self.table.item(row, col)
+                        column_label = self.table.horizontalHeaderItem(col).text()
+                        if value_item:
+                            value = value_item.text()
+                            metadata[column_label].append(value)
+                        else:
+                            metadata[column_label].append("")
 
         # Save the updated metadata
         with open(folder_path / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=4)
+
 
 
 app = QApplication(sys.argv)
