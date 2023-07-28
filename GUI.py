@@ -14,8 +14,9 @@ class CustomTableWidget(QTableWidget):
             super().__init__(*args, **kwargs)
 
         def contextMenuEvent(self, event):
-            # Get the row that was clicked
+            # Get the row and column that was clicked
             row = self.rowAt(event.y())
+            col = self.columnAt(event.x())
 
             # Create a context menu
             menu = QMenu(self)
@@ -28,25 +29,29 @@ class CustomTableWidget(QTableWidget):
             # Add a separator
             menu.addSeparator()
 
-            # Add an action for each arena
-            for i in range(1, 10):
-                action = QAction(f"Fill Arena {i}", self)
-                action.triggered.connect(lambda checked, i=i, row=row: self.fill_arena(i, row))
-                menu.addAction(action)
+            # Add an action to fill the selected arena
+            fill_arena_action = QAction("Fill Arena", self)
+            fill_arena_action.triggered.connect(lambda checked, col=col, row=row: self.fill_arena(col, row))
+            menu.addAction(fill_arena_action)
 
             # Show the context menu at the current mouse position
             menu.exec(event.globalPos())
 
-        def fill_arena(self, arena, row):
+            
+        def fill_arena(self, col, row):
+            # Get the arena number from the column label
+            column_label = self.horizontalHeaderItem(col).text()
+            arena_number = int(column_label.split("_")[0][5:])
+
             # Prompt the user to enter a value
-            value, ok = QInputDialog.getText(self, f"Fill Arena {arena}", "Value:")
+            value, ok = QInputDialog.getText(self, f"Fill Arena {arena_number}", "Value:")
             if not ok:
                 return
 
             # Find the columns for the given arena
             for col in range(1, self.columnCount()):
                 column_label = self.horizontalHeaderItem(col).text()
-                if column_label.startswith(f"Arena{arena}_"):
+                if column_label.startswith(f"Arena{arena_number}_"):
                     # Set the value for the given row in the column
                     item = self.item(row, col)
                     if item:
@@ -106,6 +111,7 @@ class CustomTableWidget(QTableWidget):
 class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
+        
 
         self.setWindowTitle("Multimaze Recorder")
         # Set the default size of the window
@@ -232,6 +238,9 @@ class MainWindow(QMainWindow):
         # Stop the live stream
         self.stop_live_stream()
 
+        # Save the data from the table
+        self.save_data()
+
         # Start the recording in a separate thread
         recording_thread = threading.Thread(
             target=self.record_images, args=(folder, fps, duration)
@@ -264,7 +273,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, "live_stream_process"):
             self.live_stream_process.terminate()
 
-    def create_data_folder(self):
+    def create_data_folder(self, metadata=None):
         # Mac Datapath
         DataPath = Path('/Users/ulric/Documents/TestFolders')
         # DataPath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
@@ -291,10 +300,11 @@ class MainWindow(QMainWindow):
                     corridor_path.mkdir(parents=True, exist_ok=True)
 
             # Create experiment.json in the main folder
-            metadata = {"Variable": []}
-            for i in range(1, 10):
-                for j in range(1, 7):
-                    metadata[f"Arena{i}_Corridor{j}"] = []
+            if metadata is None:
+                metadata = {"Variable": []}
+                for i in range(1, 10):
+                    for j in range(1, 7):
+                        metadata[f"Arena{i}_Corridor{j}"] = []
             with open(folder_path / "metadata.json", "w") as f:
                 json.dump(metadata, f, indent=4)
 
@@ -330,9 +340,6 @@ class MainWindow(QMainWindow):
 
         # Store a reference to the new table in an attribute
         self.table = table
-
-        # Split the table into parts
-        window.split_table(3)
         
         # Remove the existing information panel from the layout (if any)
         if hasattr(self, "info_panel"):
@@ -376,76 +383,90 @@ class MainWindow(QMainWindow):
         # Set the folder line edit to the selected folder
         self.folder_lineedit.setText(str(folder_path.name))
 
-    # TODO: Buttons to fill whole line or specific arenas with some value
-    # TODO: make the split table function work
-
-    def split_table(self, parts):
-        # Calculate the number of columns per part
-        columns_per_part = self.table.columnCount() // parts
-
-        # Create a list to store the table widgets
-        tables = []
-
-        # Create a table widget for each part
-        for i in range(parts):
-            # Create a new table widget
-            table = QTableWidget()
-            table.setColumnCount(columns_per_part)
-            table.setRowCount(self.table.rowCount())
-
-            # Set the horizontal header labels
-            column_labels = [
-                self.table.horizontalHeaderItem(j).text()
-                for j in range(i * columns_per_part, (i + 1) * columns_per_part)
-            ]
-            table.setHorizontalHeaderLabels(column_labels)
-
-            # Copy the data from the original table to the new table
-            for row in range(self.table.rowCount()):
-                for col in range(columns_per_part):
-                    item = self.table.item(row, i * columns_per_part + col)
-                    if item:
-                        table.setItem(row, col, QTableWidgetItem(item))
-
-            # Add the new table to the list of tables
-            tables.append(table)
-
-        # Create a window for each table
-        for i, table in enumerate(tables):
-            window = QMainWindow()
-            window.setWindowTitle(f"Table Part {i + 1}")
-            window.setCentralWidget(table)
-            window.show()
-
-        def on_cell_changed(self, row, column):
-            # Check if the table attribute is not None
-            if self.table is not None:
-                # Check if the last row was modified
-                if row == self.table.rowCount() - 1:
-                    # Add a new empty row at the bottom of the table
-                    last_row = self.table.rowCount()
-                    self.table.insertRow(last_row)
-
     def save_data(self):
         # Get the folder path from the line edit
         folder_path = self.folder_path
 
         # If no folder path has been entered, prompt the user to choose a folder name
         if not folder_path:
-            # Call the create_data_folder method to create a new data folder
-            self.create_data_folder()
+            # Create a new metadata dictionary
+            metadata = {"Variable": []}
+            for i in range(1, 10):
+                for j in range(1, 7):
+                    metadata[f"Arena{i}_Corridor{j}"] = []
+
+            # Update the metadata with the data from the table
+            variables = set()
+            for row in range(self.table.rowCount()):
+                variable_item = self.table.item(row, 0)
+                if variable_item:
+                    variable = variable_item.text()
+                    if variable and variable not in variables:
+                        variables.add(variable)
+                        metadata["Variable"].append(variable)
+
+                        for col in range(1, self.table.columnCount()):
+                            value_item = self.table.item(row, col)
+                            column_label = self.table.horizontalHeaderItem(col).text()
+                            if value_item:
+                                value = value_item.text()
+                                metadata[column_label].append(value)
+                            else:
+                                metadata[column_label].append("")
+
+            # Call the create_data_folder method to create a new data folder with the given metadata
+            self.create_data_folder(metadata)
 
             # Get the new folder path from the line edit
             folder_path = Path(self.folder_lineedit.text())
-            print(folder_path)
+        else:
+            # Create a new metadata dictionary
+            metadata = {"Variable": []}
+            for i in range(1, 10):
+                for j in range(1, 7):
+                    metadata[f"Arena{i}_Corridor{j}"] = []
 
-        # Create a new metadata dictionary
-        metadata = {"Variable": []}
+            # Update the metadata with the data from the table
+            variables = set()
+            for row in range(self.table.rowCount()):
+                variable_item = self.table.item(row, 0)
+                if variable_item:
+                    variable = variable_item.text()
+                    if variable and variable not in variables:
+                        variables.add(variable)
+                        metadata["Variable"].append(variable)
+
+                        for col in range(1, self.table.columnCount()):
+                            value_item = self.table.item(row, col)
+                            column_label = self.table.horizontalHeaderItem(col).text()
+                            if value_item:
+                                value = value_item.text()
+                                metadata[column_label].append(value)
+                            else:
+                                metadata[column_label].append("")
+
+            # Save the updated metadata
+            with open(folder_path / "metadata.json", "w") as f:
+                json.dump(metadata, f, indent=4)
+                
+    def has_unsaved_changes(self):
+        # Get the folder path from the line edit
+        folder_path = self.folder_path
+
+        # If no folder path has been entered, return False
+        if not folder_path:
+            return False
+
+        # Load the metadata from the metadata.json file
+        with open(folder_path / "metadata.json", "r") as f:
+            metadata = json.load(f)
+
+        # Create a new metadata dictionary from the data in the table
+        new_metadata = {"Variable": []}
         for i in range(1, 10):
             for j in range(1, 7):
-                metadata[f"Arena{i}_Corridor{j}"] = []
+                new_metadata[f"Arena{i}_Corridor{j}"] = []
 
-        # Update the metadata with the data from the table
         variables = set()
         for row in range(self.table.rowCount()):
             variable_item = self.table.item(row, 0)
@@ -453,21 +474,37 @@ class MainWindow(QMainWindow):
                 variable = variable_item.text()
                 if variable and variable not in variables:
                     variables.add(variable)
-                    metadata["Variable"].append(variable)
+                    new_metadata["Variable"].append(variable)
 
                     for col in range(1, self.table.columnCount()):
                         value_item = self.table.item(row, col)
                         column_label = self.table.horizontalHeaderItem(col).text()
                         if value_item:
                             value = value_item.text()
-                            metadata[column_label].append(value)
+                            new_metadata[column_label].append(value)
                         else:
-                            metadata[column_label].append("")
+                            new_metadata[column_label].append("")
 
-        # Save the updated metadata
-        with open(folder_path / "metadata.json", "w") as f:
-            json.dump(metadata, f, indent=4)
+        # Compare the loaded metadata with the new metadata
+        return metadata != new_metadata
 
+    def closeEvent(self, event):
+        # Check if there are unsaved changes
+        if self.has_unsaved_changes():
+            # Prompt the user to save data before closing
+            reply = QMessageBox.question(
+                self,
+                "Save Data",
+                "Would you like to save data before closing?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                # Save the data from the table
+                self.save_data()
+
+        event.accept()
 
 
 app = QApplication(sys.argv)
