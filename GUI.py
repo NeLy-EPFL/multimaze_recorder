@@ -326,9 +326,61 @@ class MainWindow(QMainWindow):
         # Check if a valid folder was selected
         if not folder_path:
             return
-
+        
         # Convert the folder path to a Path object
         folder_path = Path(folder_path)
+        
+        # Check if the selected folder has a valid structure
+        valid_structure = True
+        for i in range(1, 10):
+            arena_path = folder_path / f"arena{i}"
+            if not arena_path.is_dir():
+                valid_structure = False
+                break
+            for j in range(1, 7):
+                corridor_path = arena_path / f"corridor{j}"
+                if not corridor_path.is_dir():
+                    valid_structure = False
+                    break
+
+        if not valid_structure:
+            # Show a message box asking for confirmation to open the folder
+            reply = QMessageBox.question(
+                self,
+                "Invalid Folder Structure",
+                "This doesn't look like an experiment folder. Are you sure you want to open it?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            # Return if the user clicked "No"
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        # Check if the selected folder contains a metadata.json file
+        metadata_path = folder_path / "metadata.json"
+        if not metadata_path.is_file():
+            # Show a message box asking if the user wants to create a metadata.json file
+            reply = QMessageBox.question(
+                self,
+                "Missing Metadata File",
+                "This folder doesn't contain a metadata.json file. Would you like to create one?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            # Return if the user clicked "No"
+            if reply == QMessageBox.StandardButton.No:
+                return
+            # Create a new metadata.json file if the user clicked "Yes"
+            elif reply == QMessageBox.StandardButton.Yes:
+                # Create a new metadata.json file in the selected folder
+                metadata = {"Variable": []}
+                for i in range(1, 10):
+                    for j in range(1, 7):
+                        metadata[f"Arena{i}_Corridor{j}"] = []
+                with open(metadata_path, "w") as f:
+                    json.dump(metadata, f, indent=4)
+
+        
         # Store the folder path in an attribute
         self.folder_path = folder_path
 
