@@ -130,7 +130,9 @@ class MainWindow(QMainWindow):
         self.fps_spinbox.setValue(30)
 
         self.folder_lineedit = QLineEdit()
-        self.folder_lineedit.setReadOnly(True)
+
+        # Connect the textChanged signal of the folder line edit to a slot
+        self.folder_lineedit.textChanged.connect(self.on_folder_lineedit_text_changed)
 
         button = QPushButton("Start Recording")
         button.clicked.connect(self.on_button_clicked)
@@ -179,6 +181,9 @@ class MainWindow(QMainWindow):
 
         self.folder_path = None
 
+        # Initialize the folder_open attribute
+        self.folder_open = False
+
     def create_table(self, metadata=None):
         # Create a table widget to display the data
         table = CustomTableWidget()
@@ -213,6 +218,42 @@ class MainWindow(QMainWindow):
                         table.setItem(row, col, value_item)
                     col += 1
 
+            # Check if the registry file exists and is not empty
+            registry_file = Path("variables_registry.json")
+            if registry_file.exists() and registry_file.stat().st_size > 0:
+                # Read the list of known variables from the registry file
+                with open(registry_file, "r") as f:
+                    variables_registry = json.load(f)
+            else:
+                # Create a new list to store the known variables
+                variables_registry = []
+
+            # Check if any known variables are missing from the table and add them if necessary
+            row = len(metadata["Variable"])
+            for variable in variables_registry:
+                if variable not in metadata["Variable"]:
+                    table.insertRow(row)
+                    value_item = QTableWidgetItem(variable)
+                    table.setItem(row, 0, value_item)
+                    row += 1
+            table.set_cell_colors()
+
+        else:
+            # Check if the registry file exists and is not empty
+            registry_file = Path("variables_registry.json")
+            if registry_file.exists() and registry_file.stat().st_size > 0:
+                # Read the list of known variables from the registry file
+                with open(registry_file, "r") as f:
+                    variables_registry = json.load(f)
+            else:
+                # Create a new list to store the known variables
+                variables_registry = []
+
+            # Fill the "Variable" column with the values from the registry
+            for row, value in enumerate(variables_registry):
+                value_item = QTableWidgetItem(value)
+                table.setItem(row, 0, value_item)
+
         # Resize the rows and columns to fit their contents
         table.resizeRowsToContents()
         table.resizeColumnsToContents()
@@ -233,10 +274,39 @@ class MainWindow(QMainWindow):
 
         return table
 
+    def on_folder_lineedit_text_changed(self, text):
+        # Set the read-only property of the folder line edit based on the folder_open attribute
+        self.folder_lineedit.setDisabled(self.folder_open)
+
+    def close_folder(self):
+        # Clear the folder line edit
+        self.folder_lineedit.clear()
+
+        # Set the folder_open attribute to False
+        self.folder_open = False
+
+        # Add any additional code here to close the current folder and clear its data from the GUI
+
+    # TODO: Implement all methods associated with this close folder method.
+
     def on_button_clicked(self):
         duration = self.duration_spinbox.value()
         fps = self.fps_spinbox.value()
         folder = self.folder_lineedit.text()
+
+        # Check if a folder has been selected
+        if not folder:
+            # Prompt the user to enter a folder name
+            folder_name, ok = QInputDialog.getText(
+                self, "New Data Folder", "Enter folder name:"
+            )
+
+            # Create a new data folder with the specified name
+            if ok and folder_name:
+                self.create_data_folder()
+                folder = self.folder_lineedit.text()
+            else:
+                return
 
         # Stop the live stream
         self.stop_live_stream()
@@ -281,10 +351,32 @@ class MainWindow(QMainWindow):
         DataPath = Path("/Users/ulric/Documents/TestFolders")
         # DataPath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
 
-        # Prompt the user to enter a folder name
-        folder_name, ok = QInputDialog.getText(
-            self, "New Data Folder", "Enter folder name:"
-        )
+        # If there is a folder name in the lineedit, use it, else prompt the user to enter a folder name
+        if self.folder_lineedit.text():
+            folder_name = self.folder_lineedit.text()
+            ok = True
+
+        else:
+            folder_name, ok = QInputDialog.getText(
+                self, "New Data Folder", "Enter folder name:"
+            )
+            if not ok:
+                return
+        
+        folder_path = DataPath / folder_name
+        # If the folder already exists, show a message box asking if the user wants to overwrite the metadata.json file or change the folder name
+        if folder_path.exists():
+            reply = QMessageBox.question(
+                self,
+                "Folder Already Exists",
+                f"The folder {folder_name} already exists. Would you like to overwrite the metadata.json file?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+            # Return if the user clicked "No"
+            if reply == QMessageBox.StandardButton.No:
+                return
+
 
         # Create the data folder with the specified name
         if ok and folder_name:
@@ -326,10 +418,10 @@ class MainWindow(QMainWindow):
         # Check if a valid folder was selected
         if not folder_path:
             return
-        
+
         # Convert the folder path to a Path object
         folder_path = Path(folder_path)
-        
+
         # Check if the selected folder has a valid structure
         valid_structure = True
         for i in range(1, 10):
@@ -380,7 +472,6 @@ class MainWindow(QMainWindow):
                 with open(metadata_path, "w") as f:
                     json.dump(metadata, f, indent=4)
 
-        
         # Store the folder path in an attribute
         self.folder_path = folder_path
 
@@ -443,6 +534,9 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(info_panel)
 
+        # Set the folder_open attribute to True
+        self.folder_open = True
+
         # Set the folder line edit to the selected folder
         self.folder_lineedit.setText(str(folder_path.name))
 
@@ -450,38 +544,94 @@ class MainWindow(QMainWindow):
         # Get the folder path from the line edit
         folder_path = self.folder_path
 
-        # If no folder path has been entered, prompt the user to choose a folder name
+        # If no folder path has been entered, check if the folder line edit is empty
         if not folder_path:
-            # Create a new metadata dictionary
-            metadata = {"Variable": []}
-            for i in range(1, 10):
-                for j in range(1, 7):
-                    metadata[f"Arena{i}_Corridor{j}"] = []
+            folder_name = self.folder_lineedit.text()
+            # If the folder line edit is empty, prompt the user to choose a folder name
+            if not folder_name:
+                # Create a new metadata dictionary
+                metadata = {"Variable": []}
+                for i in range(1, 10):
+                    for j in range(1, 7):
+                        metadata[f"Arena{i}_Corridor{j}"] = []
 
-            # Update the metadata with the data from the table
-            variables = set()
-            for row in range(self.table.rowCount()):
-                variable_item = self.table.item(row, 0)
-                if variable_item:
-                    variable = variable_item.text()
-                    if variable and variable not in variables:
-                        variables.add(variable)
-                        metadata["Variable"].append(variable)
+                # Update the metadata with the data from the table
+                variables = set()
+                for row in range(self.table.rowCount()):
+                    variable_item = self.table.item(row, 0)
+                    if variable_item:
+                        variable = variable_item.text()
+                        if variable and variable not in variables:
+                            variables.add(variable)
+                            metadata["Variable"].append(variable)
 
-                        for col in range(1, self.table.columnCount()):
-                            value_item = self.table.item(row, col)
-                            column_label = self.table.horizontalHeaderItem(col).text()
-                            if value_item:
-                                value = value_item.text()
-                                metadata[column_label].append(value)
-                            else:
-                                metadata[column_label].append("")
+                            for col in range(1, self.table.columnCount()):
+                                value_item = self.table.item(row, col)
+                                column_label = self.table.horizontalHeaderItem(
+                                    col
+                                ).text()
+                                if value_item:
+                                    value = value_item.text()
+                                    metadata[column_label].append(value)
+                                else:
+                                    metadata[column_label].append("")
 
-            # Call the create_data_folder method to create a new data folder with the given metadata
-            self.create_data_folder(metadata)
+                # Call the create_data_folder method to create a new data folder with the given metadata
+                self.create_data_folder(metadata)
 
-            # Get the new folder path from the line edit
-            folder_path = Path(self.folder_lineedit.text())
+                # Get the new folder path from the line edit
+                folder_path = Path(self.folder_lineedit.text())
+            else:
+                # Use the text from the folder line edit as the folder name
+                DataPath = Path("/Users/ulric/Documents/TestFolders")
+                folder_path = DataPath / folder_name
+
+                # If the folder already exists, show a message box asking if the user wants to overwrite the metadata.json file or change the folder name
+                # if folder_path.exists():
+                #     reply = QMessageBox.question(
+                #         self,
+                #         "Folder Already Exists",
+                #         f"The folder {folder_name} already exists. Would you like to overwrite the metadata.json file?",
+                #         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                #         QMessageBox.StandardButton.Yes,
+                #     )
+                #     # Return if the user clicked "No"
+                #     if reply == QMessageBox.StandardButton.No:
+                #         return
+
+                self.create_data_folder()
+
+                # Create a new metadata dictionary
+                metadata = {"Variable": []}
+                for i in range(1, 10):
+                    for j in range(1, 7):
+                        metadata[f"Arena{i}_Corridor{j}"] = []
+
+                # Update the metadata with the data from the table
+                variables = set()
+                for row in range(self.table.rowCount()):
+                    variable_item = self.table.item(row, 0)
+                    if variable_item:
+                        variable = variable_item.text()
+                        if variable and variable not in variables:
+                            variables.add(variable)
+                            metadata["Variable"].append(variable)
+
+                            for col in range(1, self.table.columnCount()):
+                                value_item = self.table.item(row, col)
+                                column_label = self.table.horizontalHeaderItem(
+                                    col
+                                ).text()
+                                if value_item:
+                                    value = value_item.text()
+                                    metadata[column_label].append(value)
+                                else:
+                                    metadata[column_label].append("")
+
+                # Save the updated metadata
+                with open(folder_path / "metadata.json", "w") as f:
+                    json.dump(metadata, f, indent=4)
+
         else:
             # Create a new metadata dictionary
             metadata = {"Variable": []}
@@ -511,6 +661,31 @@ class MainWindow(QMainWindow):
             # Save the updated metadata
             with open(folder_path / "metadata.json", "w") as f:
                 json.dump(metadata, f, indent=4)
+
+        # Check if the registry file exists and is not empty
+        registry_file = Path("variables_registry.json")
+        if registry_file.exists() and registry_file.stat().st_size > 0:
+            # Read the list of known variables from the registry file
+            with open(registry_file, "r") as f:
+                variables_registry = json.load(f)
+        else:
+            # Create a new list to store the known variables
+            variables_registry = []
+
+        # Get the list of variables from the metadata
+        variables = metadata["Variable"]
+        # Update the registry with the new variables if any
+        for variable in variables:
+            if variable not in variables_registry:
+                variables_registry.append(variable)
+        # Save the updated registry
+        with open("variables_registry.json", "w") as f:
+            json.dump(variables_registry, f, indent=4)
+
+        # Open the new data folder
+        self.open_data_folder(folder_path)
+
+    # TODO: Check why some text can be changed after getting the folder opened
 
     def has_unsaved_changes(self):
         # Get the folder path from the line edit
@@ -582,3 +757,7 @@ app.exec()
 
 # Stop the live stream when the application exits
 window.stop_live_stream()
+
+
+# TODO: when not overwriting, don't open this folder
+
