@@ -348,8 +348,8 @@ class MainWindow(QMainWindow):
 
     def create_data_folder(self, metadata=None):
         # Mac Datapath
-        DataPath = Path("/Users/ulric/Documents/TestFolders")
-        # DataPath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
+        #DataPath = Path("/Users/ulric/Documents/TestFolders")
+        DataPath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
 
         # If there is a folder name in the lineedit, use it, else prompt the user to enter a folder name
         if self.folder_lineedit.text():
@@ -760,4 +760,5 @@ window.stop_live_stream()
 
 
 # TODO: when not overwriting, don't open this folder
+# TODO: Create metadata when start recording
 

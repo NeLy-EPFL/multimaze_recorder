@@ -32,15 +32,15 @@ folder = LocalPath.joinpath(FolderName)
 folder.mkdir(parents=True, exist_ok=True)
 
 # Create arena and corridor folders
-print('Creating remote folders...')
-arenas_folder = RemotePath.joinpath(folder.name)
-arenas_folder.mkdir(parents=True, exist_ok=True)
-for arena in range(1, 10):
-    arena_folder = arenas_folder.joinpath(f"arena{arena}")
-    arena_folder.mkdir(parents=True, exist_ok=True)
-    for corridor in range(1, 7):
-        corridor_folder = arena_folder.joinpath(f"corridor{corridor}")
-        corridor_folder.mkdir(parents=True, exist_ok=True)
+#print('Creating remote folders...')
+#arenas_folder = RemotePath.joinpath(folder.name)
+#arenas_folder.mkdir(parents=True, exist_ok=True)
+#for arena in range(1, 10):
+#    arena_folder = arenas_folder.joinpath(f"arena{arena}")
+#    arena_folder.mkdir(parents=True, exist_ok=True)
+#    for corridor in range(1, 7):
+#        corridor_folder = arena_folder.joinpath(f"corridor{corridor}")
+#        corridor_folder.mkdir(parents=True, exist_ok=True)
 
 # Cropping parameters
 
@@ -128,4 +128,4 @@ folder.rename(folder.parent.joinpath(folder.name + "_Recorded"))
 
 print("Program ends")
 
-# TODO: Test the recording dot
+# TODO: Make the dot red
