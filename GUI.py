@@ -8,6 +8,7 @@ import subprocess
 import os
 from pathlib import Path
 import json
+import platform
 
 
 class CustomTableWidget(QTableWidget):
@@ -112,13 +113,9 @@ class CustomTableWidget(QTableWidget):
                     item.setBackground(QColor(color))
 
 
-class MainWindow(QMainWindow):
+class ExperimentWindow(QWidget):
     def __init__(self, *args, **kwargs):
-        super(MainWindow, self).__init__(*args, **kwargs)
-
-        self.setWindowTitle("Multimaze Recorder")
-        # Set the default size of the window
-        self.resize(800, 600)
+        super(ExperimentWindow, self).__init__(*args, **kwargs)
 
         # Create widgets
         self.duration_spinbox = QSpinBox()
@@ -130,9 +127,6 @@ class MainWindow(QMainWindow):
         self.fps_spinbox.setValue(30)
 
         self.folder_lineedit = QLineEdit()
-
-        # Connect the textChanged signal of the folder line edit to a slot
-        self.folder_lineedit.textChanged.connect(self.on_folder_lineedit_text_changed)
 
         button = QPushButton("Start Recording")
         button.clicked.connect(self.on_button_clicked)
@@ -147,35 +141,15 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.folder_lineedit)
         layout.addWidget(button)
 
-        widget = QWidget()
-        widget.setLayout(layout)
-
-        self.setCentralWidget(widget)
-
-        # Create a menu bar
-        menu_bar = self.menuBar()
-
-        # Create a "File" menu
-        file_menu = menu_bar.addMenu("&File")
-
-        # Add options to the "File" menu
-        new_action = QAction("&New", self)
-        new_action.triggered.connect(self.create_data_folder)
-        file_menu.addAction(new_action)
-
-        open_action = QAction("&Open", self)
-        open_action.triggered.connect(self.open_data_folder)
-        file_menu.addAction(open_action)
-
-        save_action = QAction("&Save", self)
-        save_action.triggered.connect(self.save_data)
-        file_menu.addAction(save_action)
-
         # Create an empty table
         self.table = self.create_table()
 
         # Add the table to the layout
         layout.addWidget(self.table)
+        
+        # Set the layout on the window
+        self.setLayout(layout)
+
 
         # Intialize the updatable attributes to None
 
@@ -183,6 +157,13 @@ class MainWindow(QMainWindow):
 
         # Initialize the folder_open attribute
         self.folder_open = False
+        
+        # Mac Datapath
+        if platform.system() == "Darwin":
+            self.DataPath = Path("/Volumes/Ramdya-Lab/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos")
+        # Linux Datapath
+        if platform.system() == "Linux":
+            self.DataPath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
 
     def create_table(self, metadata=None):
         # Create a table widget to display the data
@@ -274,54 +255,69 @@ class MainWindow(QMainWindow):
 
         return table
 
-    def on_folder_lineedit_text_changed(self, text):
-        # Set the read-only property of the folder line edit based on the folder_open attribute
-        self.folder_lineedit.setDisabled(self.folder_open)
-
     def close_folder(self):
-        # Clear the folder line edit
-        self.folder_lineedit.clear()
+        
+        if self.folder_open == False:
+            return
+        
+        else:
+            # Reset the folder_open attribute
+            self.folder_open = False
+            
+             # Get the layout of the central widget
+            layout = self.layout()
+            
+            table = self.create_table()
 
-        # Set the folder_open attribute to False
-        self.folder_open = False
+            # Remove the existing table from the layout (if any)
+            if self.table:
+                layout.removeWidget(self.table)
+                self.table.deleteLater()
+                
+            # Store a reference to the new table in an attribute
+            self.table = table
+                
+            layout.removeWidget(self.info_panel)
 
-        # Add any additional code here to close the current folder and clear its data from the GUI
+            # Add the new table to the layout
+            layout.addWidget(table)
 
-    # TODO: Implement all methods associated with this close folder method.
+            # Clear the folder line edit
+            self.folder_lineedit.clear()
+
+            # Reset the folder_path attribute
+            self.folder_path = None
+            
+            self.folder_lineedit.setDisabled(False)
 
     def on_button_clicked(self):
         duration = self.duration_spinbox.value()
         fps = self.fps_spinbox.value()
         folder = self.folder_lineedit.text()
-
-        # Check if a folder has been selected
-        if not folder:
-            # Prompt the user to enter a folder name
-            folder_name, ok = QInputDialog.getText(
-                self, "New Data Folder", "Enter folder name:"
-            )
-
-            # Create a new data folder with the specified name
-            if ok and folder_name:
-                self.create_data_folder()
-                folder = self.folder_lineedit.text()
-            else:
-                return
+        
+        # Check if a folder is open
+        if self.folder_open == False:
+            self.create_data_folder()
+        else:
+            self.save_data()
 
         # Stop the live stream
         self.stop_live_stream()
 
-        # Save the data from the table
-        self.save_data()
-
         # Start the recording in a separate thread
-        recording_thread = threading.Thread(
-            target=self.record_images, args=(folder, fps, duration)
-        )
-        recording_thread.start()
+        if platform.system() == "Linux":
+            recording_thread = threading.Thread(
+                target=self.record_images, args=(folder, fps, duration)
+            )
+            recording_thread.start()
+        
+        elif platform.system() == "Darwin":
+            QMessageBox.information(self, "Information", "Camera recording is not supported on laptop.")
+            return
+
 
     def record_images(self, folder, fps, duration):
-        # Replace 'recording_script.py' with the path to your recording script
+        
         subprocess.run(
             [
                 "python",
@@ -334,53 +330,105 @@ class MainWindow(QMainWindow):
         # Restart the live stream after recording is finished
         self.start_live_stream()
 
+
     def start_live_stream(self):
         # Start the live stream in a separate process
-        # Replace 'live_stream_script.py' with the path to your live stream script
-        self.live_stream_process = subprocess.Popen(
-            ["python", "/home/matthias/multimaze_recorder/LiveStream.py"]
-        )
+        if platform.system() == "Linux":
+            self.live_stream_process = subprocess.Popen(
+                ["python", "/home/matthias/multimaze_recorder/LiveStream.py"]
+            )
+        elif platform.system() == "Darwin":
+            return
 
     def stop_live_stream(self):
         # Stop the live stream by terminating the process
         if hasattr(self, "live_stream_process"):
             self.live_stream_process.terminate()
+            
+    def create_metadata(self, table=None):
+         # Create a new metadata dictionary
+        metadata = {"Variable": []}
+        for i in range(1, 10):
+            for j in range(1, 7):
+                metadata[f"Arena{i}_Corridor{j}"] = []
+
+        # If a table object is provided, use it to populate the metadata dictionary
+        if table:
+            # Update the metadata with the data from the table
+            variables = set()
+            for row in range(table.rowCount()):
+                variable_item = table.item(row, 0)
+                if variable_item:
+                    variable = variable_item.text()
+                    if variable and variable not in variables:
+                        variables.add(variable)
+                        metadata["Variable"].append(variable)
+
+                        for col in range(1, table.columnCount()):
+                            value_item = table.item(row, col)
+                            column_label = table.horizontalHeaderItem(
+                                col
+                            ).text()
+                            if value_item:
+                                value = value_item.text()
+                                metadata[column_label].append(value)
+                            else:
+                                metadata[column_label].append("")
+        
+        return metadata
+    
+    def check_data_access(self):
+        if not self.DataPath.exists():
+                # Display an error message and return
+                QMessageBox.critical(self, "Error", f"Cannot access the data folder. Check labserver connection.")
+                return False
 
     def create_data_folder(self, metadata=None):
-        # Mac Datapath
-        #DataPath = Path("/Users/ulric/Documents/TestFolders")
-        DataPath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
-
-        # If there is a folder name in the lineedit, use it, else prompt the user to enter a folder name
-        if self.folder_lineedit.text():
-            folder_name = self.folder_lineedit.text()
-            ok = True
-
-        else:
+        
+        # Check if a folder is already open
+        if self.folder_open:
+            # Prompt the user to enter a new folder name
             folder_name, ok = QInputDialog.getText(
-                self, "New Data Folder", "Enter folder name:"
+                self, "New Data Folder", "Enter new folder name:"
             )
             if not ok:
                 return
         
-        folder_path = DataPath / folder_name
-        # If the folder already exists, show a message box asking if the user wants to overwrite the metadata.json file or change the folder name
-        if folder_path.exists():
+        else:
+            # If there is a folder name in the lineedit, use it, else prompt the user to enter a folder name
+            if self.folder_lineedit.text():
+                folder_name = self.folder_lineedit.text()
+                ok = True
+            else:
+                folder_name, ok = QInputDialog.getText(
+                    self, "New Data Folder", "Enter folder name:"
+                )
+                if not ok:
+                    return
+
+        folder_path = self.DataPath / folder_name
+        # If the folder already exists, show a message box asking if the user wants to open the existing folder or choose a different name
+        while folder_path.exists():
             reply = QMessageBox.question(
                 self,
                 "Folder Already Exists",
-                f"The folder {folder_name} already exists. Would you like to overwrite the metadata.json file?",
+                f"The folder {folder_name} already exists. Would you like to open the existing folder?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes,
             )
-            # Return if the user clicked "No"
-            if reply == QMessageBox.StandardButton.No:
+            # Open the existing folder if the user clicked "Yes"
+            if reply == QMessageBox.StandardButton.Yes:
+                self.open_data_folder(folder_path)
+                return
+            # Prompt the user to enter a new folder name if they clicked "No"
+            else:
                 return
 
-
+        if self.check_data_access() == False:
+            return
         # Create the data folder with the specified name
         if ok and folder_name:
-            folder_path = DataPath / folder_name
+            folder_path = self.DataPath / folder_name
             folder_path.mkdir(parents=True, exist_ok=True)
 
             # Update the folder line edit with the full path to the new data folder
@@ -398,21 +446,26 @@ class MainWindow(QMainWindow):
 
             # Create experiment.json in the main folder
             if metadata is None:
-                metadata = {"Variable": []}
-                for i in range(1, 10):
-                    for j in range(1, 7):
-                        metadata[f"Arena{i}_Corridor{j}"] = []
+               metadata=self.create_metadata()
+            if self.check_data_access() == False:
+                return
             with open(folder_path / "metadata.json", "w") as f:
                 json.dump(metadata, f, indent=4)
 
             # Open the new data folder
             self.open_data_folder(folder_path)
 
+
+
     def open_data_folder(self, folder_path=None):
+        
+        if folder_path and str(self.DataPath) not in str(folder_path):
+            return
+        
         # Prompt the user to select a folder if no folder path was provided
         if not folder_path:
             folder_path = QFileDialog.getExistingDirectory(
-                self, "Open Data Folder", str(Path.home())
+                self, "Open Data Folder", str(self.DataPath)
             )
 
         # Check if a valid folder was selected
@@ -421,7 +474,7 @@ class MainWindow(QMainWindow):
 
         # Convert the folder path to a Path object
         folder_path = Path(folder_path)
-
+        
         # Check if the selected folder has a valid structure
         valid_structure = True
         for i in range(1, 10):
@@ -465,10 +518,9 @@ class MainWindow(QMainWindow):
             # Create a new metadata.json file if the user clicked "Yes"
             elif reply == QMessageBox.StandardButton.Yes:
                 # Create a new metadata.json file in the selected folder
-                metadata = {"Variable": []}
-                for i in range(1, 10):
-                    for j in range(1, 7):
-                        metadata[f"Arena{i}_Corridor{j}"] = []
+                metadata=self.create_metadata()
+                if self.check_data_access() == False:
+                    return
                 with open(metadata_path, "w") as f:
                     json.dump(metadata, f, indent=4)
 
@@ -483,7 +535,7 @@ class MainWindow(QMainWindow):
         table = self.create_table(metadata)
 
         # Get the layout of the central widget
-        layout = self.centralWidget().layout()
+        layout = self.layout()
 
         # Remove the existing table from the layout (if any)
         if self.table:
@@ -539,126 +591,49 @@ class MainWindow(QMainWindow):
 
         # Set the folder line edit to the selected folder
         self.folder_lineedit.setText(str(folder_path.name))
+        
+        self.folder_lineedit.setDisabled(True)
 
     def save_data(self):
-        # Get the folder path from the line edit
+        # Get the current folder path
         folder_path = self.folder_path
 
         # If no folder path has been entered, check if the folder line edit is empty
         if not folder_path:
             folder_name = self.folder_lineedit.text()
+            
             # If the folder line edit is empty, prompt the user to choose a folder name
             if not folder_name:
-                # Create a new metadata dictionary
-                metadata = {"Variable": []}
-                for i in range(1, 10):
-                    for j in range(1, 7):
-                        metadata[f"Arena{i}_Corridor{j}"] = []
-
-                # Update the metadata with the data from the table
-                variables = set()
-                for row in range(self.table.rowCount()):
-                    variable_item = self.table.item(row, 0)
-                    if variable_item:
-                        variable = variable_item.text()
-                        if variable and variable not in variables:
-                            variables.add(variable)
-                            metadata["Variable"].append(variable)
-
-                            for col in range(1, self.table.columnCount()):
-                                value_item = self.table.item(row, col)
-                                column_label = self.table.horizontalHeaderItem(
-                                    col
-                                ).text()
-                                if value_item:
-                                    value = value_item.text()
-                                    metadata[column_label].append(value)
-                                else:
-                                    metadata[column_label].append("")
+                metadata=self.create_metadata(table = self.table)
 
                 # Call the create_data_folder method to create a new data folder with the given metadata
                 self.create_data_folder(metadata)
 
                 # Get the new folder path from the line edit
                 folder_path = Path(self.folder_lineedit.text())
+                
             else:
                 # Use the text from the folder line edit as the folder name
-                DataPath = Path("/Users/ulric/Documents/TestFolders")
-                folder_path = DataPath / folder_name
-
-                # If the folder already exists, show a message box asking if the user wants to overwrite the metadata.json file or change the folder name
-                # if folder_path.exists():
-                #     reply = QMessageBox.question(
-                #         self,
-                #         "Folder Already Exists",
-                #         f"The folder {folder_name} already exists. Would you like to overwrite the metadata.json file?",
-                #         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                #         QMessageBox.StandardButton.Yes,
-                #     )
-                #     # Return if the user clicked "No"
-                #     if reply == QMessageBox.StandardButton.No:
-                #         return
+                folder_path = self.DataPath / folder_name
 
                 self.create_data_folder()
-
-                # Create a new metadata dictionary
-                metadata = {"Variable": []}
-                for i in range(1, 10):
-                    for j in range(1, 7):
-                        metadata[f"Arena{i}_Corridor{j}"] = []
-
-                # Update the metadata with the data from the table
-                variables = set()
-                for row in range(self.table.rowCount()):
-                    variable_item = self.table.item(row, 0)
-                    if variable_item:
-                        variable = variable_item.text()
-                        if variable and variable not in variables:
-                            variables.add(variable)
-                            metadata["Variable"].append(variable)
-
-                            for col in range(1, self.table.columnCount()):
-                                value_item = self.table.item(row, col)
-                                column_label = self.table.horizontalHeaderItem(
-                                    col
-                                ).text()
-                                if value_item:
-                                    value = value_item.text()
-                                    metadata[column_label].append(value)
-                                else:
-                                    metadata[column_label].append("")
+                metadata=self.create_metadata(table = self.table)
 
                 # Save the updated metadata
+                if self.check_data_access() == False:
+                    return
                 with open(folder_path / "metadata.json", "w") as f:
                     json.dump(metadata, f, indent=4)
 
         else:
-            # Create a new metadata dictionary
-            metadata = {"Variable": []}
-            for i in range(1, 10):
-                for j in range(1, 7):
-                    metadata[f"Arena{i}_Corridor{j}"] = []
-
-            # Update the metadata with the data from the table
-            variables = set()
-            for row in range(self.table.rowCount()):
-                variable_item = self.table.item(row, 0)
-                if variable_item:
-                    variable = variable_item.text()
-                    if variable and variable not in variables:
-                        variables.add(variable)
-                        metadata["Variable"].append(variable)
-
-                        for col in range(1, self.table.columnCount()):
-                            value_item = self.table.item(row, col)
-                            column_label = self.table.horizontalHeaderItem(col).text()
-                            if value_item:
-                                value = value_item.text()
-                                metadata[column_label].append(value)
-                            else:
-                                metadata[column_label].append("")
+            
+            
+                
+            metadata=self.create_metadata(table = self.table)
 
             # Save the updated metadata
+            if self.check_data_access() == False:
+                return
             with open(folder_path / "metadata.json", "w") as f:
                 json.dump(metadata, f, indent=4)
 
@@ -679,13 +654,13 @@ class MainWindow(QMainWindow):
             if variable not in variables_registry:
                 variables_registry.append(variable)
         # Save the updated registry
+        if self.check_data_access() == False:
+            return
         with open("variables_registry.json", "w") as f:
             json.dump(variables_registry, f, indent=4)
 
         # Open the new data folder
         self.open_data_folder(folder_path)
-
-    # TODO: Check why some text can be changed after getting the folder opened
 
     def has_unsaved_changes(self):
         # Get the folder path from the line edit
@@ -700,28 +675,7 @@ class MainWindow(QMainWindow):
             metadata = json.load(f)
 
         # Create a new metadata dictionary from the data in the table
-        new_metadata = {"Variable": []}
-        for i in range(1, 10):
-            for j in range(1, 7):
-                new_metadata[f"Arena{i}_Corridor{j}"] = []
-
-        variables = set()
-        for row in range(self.table.rowCount()):
-            variable_item = self.table.item(row, 0)
-            if variable_item:
-                variable = variable_item.text()
-                if variable and variable not in variables:
-                    variables.add(variable)
-                    new_metadata["Variable"].append(variable)
-
-                    for col in range(1, self.table.columnCount()):
-                        value_item = self.table.item(row, col)
-                        column_label = self.table.horizontalHeaderItem(col).text()
-                        if value_item:
-                            value = value_item.text()
-                            new_metadata[column_label].append(value)
-                        else:
-                            new_metadata[column_label].append("")
+        new_metadata = self.create_metadata(self.table)
 
         # Compare the loaded metadata with the new metadata
         return metadata != new_metadata
@@ -743,22 +697,109 @@ class MainWindow(QMainWindow):
                 self.save_data()
 
         event.accept()
+        
+class ProcessingWindow(QWidget):
+    def __init__(self):
+        super().__init__()
 
+        # Create a horizontal layout for the central widget
+        layout = QHBoxLayout()
+
+        # Create buttons for the processing window
+        crop_button = QPushButton("Crop Images")
+        crop_button.clicked.connect(self.on_crop_button_clicked)
+        layout.addWidget(crop_button)
+
+        make_videos_button = QPushButton("Make Videos")
+        make_videos_button.clicked.connect(self.on_make_videos_button_clicked)
+        layout.addWidget(make_videos_button)
+
+        track_videos_button = QPushButton("Track Videos")
+        track_videos_button.clicked.connect(self.on_track_videos_button_clicked)
+        layout.addWidget(track_videos_button)
+        
+        self.setLayout(layout)
+
+    def on_crop_button_clicked(self):
+        # Launch the terminal and run the run_processimages command
+        if sys.platform == "darwin":
+            QMessageBox.information(self, "Information", "This command is not yet implemented for remote execution and should be run from the workstation.")
+            return
+        else:
+            subprocess.Popen(["gnome-terminal", "--", "run_processimages"])
+
+    def on_make_videos_button_clicked(self):
+        # Launch the terminal and run the run_makevideos command
+        if sys.platform == "darwin":
+            QMessageBox.information(self, "Information", "This command is not yet implemented for remote execution and should be run from the workstation.")
+            return
+        else:
+            subprocess.Popen(["gnome-terminal", "--", "run_makevideos"])
+
+    def on_track_videos_button_clicked(self):
+        # Launch the terminal and run the balltracker command
+        if sys.platform == "darwin":
+            QMessageBox.information(self, "Information", "This command is not yet implemented for remote execution and should be run from the workstation.")
+            return
+        else:
+            subprocess.Popen(["gnome-terminal", "--", "balltracker"])
+            
+
+class MainWindow(QMainWindow):
+    def __init__(self, *args, **kwargs):
+        super(MainWindow, self).__init__(*args, **kwargs)
+
+        self.setWindowTitle("Multimaze Recorder")
+        # Set the default size of the window
+        self.resize(800, 600)
+        
+        # Create a tab widget
+        tab_widget = QTabWidget()
+        self.setCentralWidget(tab_widget)
+
+        # Create the experiment window and add it as a tab
+        experiment_window = ExperimentWindow()
+        tab_widget.addTab(experiment_window, "Experiment")
+
+        # Create the processing window and add it as a tab
+        processing_window = ProcessingWindow()
+        tab_widget.addTab(processing_window, "Processing")
+        
+        # Create a menu bar
+        menu_bar = self.menuBar()
+
+        # Create a "File" menu
+        file_menu = menu_bar.addMenu("&File")
+
+        # Add options to the "File" menu
+        new_action = QAction("&New", self)
+        new_action.triggered.connect(experiment_window.create_data_folder)
+        file_menu.addAction(new_action)
+
+        open_action = QAction("&Open", self)
+        open_action.triggered.connect(experiment_window.open_data_folder)
+        file_menu.addAction(open_action)
+
+        save_action = QAction("&Save", self)
+        save_action.triggered.connect(experiment_window.save_data)
+        file_menu.addAction(save_action)
+        
+        close_action = QAction("&Close", self)
+        close_action.triggered.connect(experiment_window.close_folder)
+        file_menu.addAction(close_action)
 
 app = QApplication(sys.argv)
 
 window = MainWindow()
 window.show()
 
+# Get a reference to the experiment window
+experiment_window = window.findChild(ExperimentWindow)
+
 # Start the live stream when the window is shown
-window.start_live_stream()
+experiment_window.start_live_stream()
 
 app.exec()
 
 # Stop the live stream when the application exits
-window.stop_live_stream()
-
-
-# TODO: when not overwriting, don't open this folder
-# TODO: Create metadata when start recording
-
+experiment_window.stop_live_stream()
