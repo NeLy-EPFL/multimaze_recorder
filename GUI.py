@@ -91,9 +91,9 @@ class CustomTableWidget(QTableWidget):
             "#85C1E9",
             "#BB8FCE",
             "#F1948A",
-            "#E5E7E9",
+            "#6C88C4",
             "#D35400",
-            "#5D6D7E",
+            "#FFBD00",
             "#1ABC9C",
         ]
 
@@ -229,8 +229,11 @@ class ExperimentWindow(QWidget):
                     table.insertRow(row)
                     value_item = QTableWidgetItem(variable)
                     table.setItem(row, 0, value_item)
+                    # Set the values of the other columns for this row
+                    for col in range(1, table.columnCount()):
+                        value_item = QTableWidgetItem("")
+                        table.setItem(row, col, value_item)
                     row += 1
-            table.set_cell_colors()
 
         else:
             # Check if the registry file exists and is not empty
@@ -247,7 +250,7 @@ class ExperimentWindow(QWidget):
             for row, value in enumerate(variables_registry):
                 value_item = QTableWidgetItem(value)
                 table.setItem(row, 0, value_item)
-
+            
         # Resize the rows and columns to fit their contents
         table.resizeRowsToContents()
         table.resizeColumnsToContents()
@@ -453,7 +456,7 @@ class ExperimentWindow(QWidget):
                 self,
                 "Choose Table Style",
                 "Choose a table style for the new data folder:",
-                ["corridors", "arenas"],
+                ["arenas", "corridors"],
                 0,
                 False,
             )
@@ -598,8 +601,25 @@ class ExperimentWindow(QWidget):
                 return
             # Create a new metadata.json file if the user clicked "Yes"
             elif reply == QMessageBox.StandardButton.Yes:
+                
+                 # Prompt the user to choose a table style
+                table_style, ok = QInputDialog.getItem(
+                    self,
+                    "Choose Table Style",
+                    "Choose a table style for the new data folder:",
+                    ["arenas", "corridors"],
+                    0,
+                    False,
+                )
+                # Find the index of the item with the specified text
+                index = self.table_style_selector.findText(table_style)
+                # Set the current index of the table style selector combo box
+                self.table_style_selector.setCurrentIndex(index)
+                
+                if not ok:
+                    return
                 # Create a new metadata.json file in the selected folder
-                metadata=self.create_metadata()
+                metadata=self.create_metadata(table_style=table_style)
                 if self.check_data_access() == False:
                     return
                 with open(metadata_path, "w") as f:
@@ -717,7 +737,7 @@ class ExperimentWindow(QWidget):
             
             
                 
-            metadata=self.create_metadata(table = self.table)
+            metadata=self.create_metadata(table = self.table, table_style = self.table_style_selector.currentText())
 
             # Save the updated metadata
             if self.check_data_access() == False:
@@ -758,33 +778,16 @@ class ExperimentWindow(QWidget):
         if not folder_path:
             return False
 
+        table_style = self.table_style_selector.currentText()
         # Load the metadata from the metadata.json file
         with open(folder_path / "metadata.json", "r") as f:
             metadata = json.load(f)
 
         # Create a new metadata dictionary from the data in the table
-        new_metadata = self.create_metadata(self.table)
+        new_metadata = self.create_metadata(self.table, table_style = table_style)
 
         # Compare the loaded metadata with the new metadata
         return metadata != new_metadata
-
-    def closeEvent(self, event):
-        # Check if there are unsaved changes
-        if self.has_unsaved_changes():
-            # Prompt the user to save data before closing
-            reply = QMessageBox.question(
-                self,
-                "Save Data",
-                "Would you like to save data before closing?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
-            )
-
-            if reply == QMessageBox.StandardButton.Yes:
-                # Save the data from the table
-                self.save_data()
-
-        event.accept()
         
 class ProcessingWindow(QWidget):
     def __init__(self):
@@ -875,6 +878,26 @@ class MainWindow(QMainWindow):
         close_action = QAction("&Close", self)
         close_action.triggered.connect(experiment_window.close_folder)
         file_menu.addAction(close_action)
+        
+    def closeEvent(self, event):
+        # Check if there are unsaved changes in the experiment window
+        if experiment_window.has_unsaved_changes():
+            
+            print('unsaved changes')
+            # Prompt the user to save data before closing
+            reply = QMessageBox.question(
+                self,
+                "Save Data",
+                "Would you like to save data before closing?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                # Save the data from the table
+                experiment_window.save_data()
+
+        event.accept()
 
 app = QApplication(sys.argv)
 
