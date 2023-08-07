@@ -130,6 +130,10 @@ class ExperimentWindow(QWidget):
 
         button = QPushButton("Start Recording")
         button.clicked.connect(self.on_button_clicked)
+        
+        self.table_style_selector = QComboBox()
+        self.table_style_selector.addItems(["arenas", "corridors"])
+        self.table_style_selector.currentIndexChanged.connect(self.update_table_style)
 
         # Create layout
         layout = QVBoxLayout()
@@ -140,6 +144,8 @@ class ExperimentWindow(QWidget):
         layout.addWidget(QLabel("Folder:"))
         layout.addWidget(self.folder_lineedit)
         layout.addWidget(button)
+        layout.addWidget(QLabel("Table layout:"))
+        layout.addWidget(self.table_style_selector)
 
         # Create an empty table
         self.table = self.create_table()
@@ -165,14 +171,21 @@ class ExperimentWindow(QWidget):
         if platform.system() == "Linux":
             self.DataPath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
 
-    def create_table(self, metadata=None):
+    def create_table(self, metadata=None, table_style = "arenas"):
         # Create a table widget to display the data
         table = CustomTableWidget()
-        column_count = 1 + 9 * 6
-        column_labels = ["Variable"]
-        for i in range(1, 10):
-            for j in range(1, 7):
-                column_labels.append(f"Arena{i}_Corridor{j}")
+        
+        if table_style == "corridors":
+            column_count = 1 + 9 * 6
+            column_labels = ["Variable"]
+            for i in range(1, 10):
+                for j in range(1, 7):
+                    column_labels.append(f"Arena{i}_Corridor{j}")
+        elif table_style == "arenas":
+            column_count = 1 + 9
+            column_labels = ["Variable"]
+            for i in range(1, 10):
+                column_labels.append(f"Arena{i}")
         table.setColumnCount(column_count)
         table.setHorizontalHeaderLabels(column_labels)
 
@@ -254,6 +267,42 @@ class ExperimentWindow(QWidget):
         table.set_cell_colors()
 
         return table
+    
+    def update_table_style(self, index):
+        # Get the selected layout from the combo box
+        table_style = self.table_style_selector.itemText(index)
+        # Update the table and metadata with the new layout
+        
+        self.create_metadata(table_style=table_style)
+        self.create_table(table_style=table_style)
+        
+        layout = self.layout()
+        
+        if not self.folder_open:
+            
+            table = self.create_table(table_style=table_style)
+            # Remove the existing table from the layout (if any)
+            if self.table:
+                layout.removeWidget(self.table)
+                self.table.deleteLater()
+
+            # Add the new table to the layout
+            layout.addWidget(table)
+
+            # Store a reference to the new table in an attribute
+            self.table = table
+        
+    def detect_table_style(self, metadata):
+        # Check if the metadata contains keys for the "corridor" layout
+        if any(key.startswith("Arena1_Corridor") for key in metadata.keys()):
+            return "corridors"
+        # Check if the metadata contains keys for the "arena" layout
+        elif any(key.startswith("Arena") for key in metadata.keys()):
+            return "arenas"
+        # If neither layout is detected, return a default value
+        else:
+            return "arenas"
+
 
     def close_folder(self):
         
@@ -289,6 +338,7 @@ class ExperimentWindow(QWidget):
             self.folder_path = None
             
             self.folder_lineedit.setDisabled(False)
+            self.table_style_selector.setDisabled(False)
 
     def on_button_clicked(self):
         duration = self.duration_spinbox.value()
@@ -345,12 +395,16 @@ class ExperimentWindow(QWidget):
         if hasattr(self, "live_stream_process"):
             self.live_stream_process.terminate()
             
-    def create_metadata(self, table=None):
-         # Create a new metadata dictionary
+    def create_metadata(self, table=None, table_style = "arenas"):
+        # Create a new metadata dictionary
         metadata = {"Variable": []}
-        for i in range(1, 10):
-            for j in range(1, 7):
-                metadata[f"Arena{i}_Corridor{j}"] = []
+        if table_style == "corridors":
+            for i in range(1, 10):
+                for j in range(1, 7):
+                    metadata[f"Arena{i}_Corridor{j}"] = []
+        elif table_style == "arenas":
+            for i in range(1, 10):
+                metadata[f"Arena{i}"] = []
 
         # If a table object is provided, use it to populate the metadata dictionary
         if table:
@@ -393,6 +447,23 @@ class ExperimentWindow(QWidget):
             )
             if not ok:
                 return
+            
+            # Prompt the user to choose a table style
+            table_style, ok = QInputDialog.getItem(
+                self,
+                "Choose Table Style",
+                "Choose a table style for the new data folder:",
+                ["corridors", "arenas"],
+                0,
+                False,
+            )
+            # Find the index of the item with the specified text
+            index = self.table_style_selector.findText(table_style)
+            # Set the current index of the table style selector combo box
+            self.table_style_selector.setCurrentIndex(index)
+            
+            if not ok:
+                return
         
         else:
             # If there is a folder name in the lineedit, use it, else prompt the user to enter a folder name
@@ -405,7 +476,9 @@ class ExperimentWindow(QWidget):
                 )
                 if not ok:
                     return
-
+                
+            table_style = self.table_style_selector.currentText()
+                
         folder_path = self.DataPath / folder_name
         # If the folder already exists, show a message box asking if the user wants to open the existing folder or choose a different name
         while folder_path.exists():
@@ -444,14 +517,22 @@ class ExperimentWindow(QWidget):
                     corridor_path = arena_path / f"corridor{j}"
                     corridor_path.mkdir(parents=True, exist_ok=True)
 
+            if self.folder_open:
+                
+                self.table.deleteLater()
+                table = self.create_table(table_style=table_style)
+                # Store a reference to the new table in an attribute
+                self.table = table
+                
             # Create experiment.json in the main folder
-            if metadata is None:
-               metadata=self.create_metadata()
+            
+            metadata=self.create_metadata(table = self.table, table_style=table_style)
             if self.check_data_access() == False:
                 return
             with open(folder_path / "metadata.json", "w") as f:
                 json.dump(metadata, f, indent=4)
-
+                    
+            
             # Open the new data folder
             self.open_data_folder(folder_path)
 
@@ -530,9 +611,15 @@ class ExperimentWindow(QWidget):
         # Load the metadata from the selected folder
         with open(folder_path / "metadata.json", "r") as f:
             metadata = json.load(f)
+            
+        table_style = self.detect_table_style(metadata)
+        
+        # Update the layout selector combo box with the detected layout
+        index = self.table_style_selector.findText(table_style)
+        self.table_style_selector.setCurrentIndex(index)
 
         # Create a new table using the loaded metadata
-        table = self.create_table(metadata)
+        table = self.create_table(metadata, table_style = self.table_style_selector.currentText())
 
         # Get the layout of the central widget
         layout = self.layout()
@@ -593,6 +680,7 @@ class ExperimentWindow(QWidget):
         self.folder_lineedit.setText(str(folder_path.name))
         
         self.folder_lineedit.setDisabled(True)
+        self.table_style_selector.setDisabled(True)
 
     def save_data(self):
         # Get the current folder path
