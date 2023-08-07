@@ -792,6 +792,9 @@ class ExperimentWindow(QWidget):
 class ProcessingWindow(QWidget):
     def __init__(self):
         super().__init__()
+        
+        # Store a reference to the experiment window
+        self.experiment_window = ExperimentWindow()
 
         # Create a horizontal layout for the central widget
         layout = QHBoxLayout()
@@ -808,6 +811,25 @@ class ProcessingWindow(QWidget):
         track_videos_button = QPushButton("Track Videos")
         track_videos_button.clicked.connect(self.on_track_videos_button_clicked)
         layout.addWidget(track_videos_button)
+        
+        # Create a vertical layout for the folder lists
+        folder_layout = QVBoxLayout()
+        layout.addLayout(folder_layout)
+
+        # Create a label and list widget for the data path folders
+        data_path_label = QLabel("Lab server videos:")
+        folder_layout.addWidget(data_path_label)
+        self.data_path_folder_list = QListWidget()
+        folder_layout.addWidget(self.data_path_folder_list)
+
+        # Create a label and list widget for the local path folders
+        local_path_label = QLabel("Recorded Videos:")
+        folder_layout.addWidget(local_path_label)
+        self.local_path_folder_list = QListWidget()
+        folder_layout.addWidget(self.local_path_folder_list)
+
+        # Populate the list widgets with the folders
+        self.populate_folder_lists()
         
         self.setLayout(layout)
 
@@ -834,6 +856,37 @@ class ProcessingWindow(QWidget):
             return
         else:
             subprocess.Popen(["gnome-terminal", "--", "balltracker"])
+            
+    def populate_folder_lists(self):
+        # Clear the list widgets
+        self.data_path_folder_list.clear()
+        self.local_path_folder_list.clear()
+
+        # Get the data path from the experiment window
+        data_path = Path(self.experiment_window.DataPath)
+
+        # Add the folders from the data path to the data path list widget
+        if data_path.exists():
+            for folder in data_path.iterdir():
+                if folder.is_dir():
+                    item = QListWidgetItem(folder.name)
+                    if any(folder.name.endswith(suffix) for suffix in ["_Tracked", "_Videos", "_Checked"]):
+                        item.setForeground(QColor("green"))
+                    else:
+                        item.setForeground(QColor("gray"))
+                    self.data_path_folder_list.addItem(item)
+
+        # Add the folders from the local path to the local path list widget
+        if sys.platform == "linux":
+            local_path = Path("/path/to/local/folder")
+            for folder in local_path.iterdir():
+                if folder.is_dir():
+                    item = QListWidgetItem(folder.name)
+                    if any(folder.name.endswith(suffix) for suffix in ["_Tracked", "_Videos", "_Checked"]):
+                        item.setForeground(QColor("green"))
+                    else:
+                        item.setForeground(QColor("gray"))
+                    self.local_path_folder_list.addItem(item)
             
 
 class MainWindow(QMainWindow):
