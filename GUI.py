@@ -347,7 +347,7 @@ class ExperimentWindow(QWidget):
         duration = self.duration_spinbox.value()
         fps = self.fps_spinbox.value()
         folder = self.folder_lineedit.text()
-        
+
         # Check if a folder is open
         if self.folder_open == False:
             self.create_data_folder()
@@ -357,20 +357,24 @@ class ExperimentWindow(QWidget):
         # Stop the live stream
         self.stop_live_stream()
 
+        # Disable the record button and spinboxes
+        self.record_button.setEnabled(False)
+        self.duration_spinbox.setEnabled(False)
+        self.fps_spinbox.setEnabled(False)
+
         # Start the recording in a separate thread
         if platform.system() == "Linux":
             recording_thread = threading.Thread(
                 target=self.record_images, args=(folder, fps, duration)
             )
             recording_thread.start()
-        
+
         elif platform.system() == "Darwin":
             QMessageBox.information(self, "Information", "Camera recording is not supported on laptop.")
             return
 
 
     def record_images(self, folder, fps, duration):
-        
         subprocess.run(
             [
                 "python",
@@ -380,8 +384,14 @@ class ExperimentWindow(QWidget):
                 str(duration),
             ]
         )
+        
         # Restart the live stream after recording is finished
         self.start_live_stream()
+
+        # Re-enable the record button and spinboxes
+        self.record_button.setEnabled(True)
+        self.duration_spinbox.setEnabled(True)
+        self.fps_spinbox.setEnabled(True)
 
 
     def start_live_stream(self):
