@@ -1,4 +1,8 @@
 [
     "Date",
-    "Genotype"
+    "Genotype",
+    "Period",
+    "FeedingState",
+    "Orientation",
+    "Light"
 ]

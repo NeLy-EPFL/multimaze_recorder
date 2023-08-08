@@ -870,8 +870,10 @@ class ProcessingWindow(QWidget):
             for folder in data_path.iterdir():
                 if folder.is_dir():
                     item = QListWidgetItem(folder.name)
-                    if any(folder.name.endswith(suffix) for suffix in ["_Tracked", "_Videos", "_Checked"]):
+                    if any(folder.name.endswith(suffix) for suffix in ["_Tracked", ]):
                         item.setForeground(QColor("green"))
+                    elif any(folder.name.endswith(suffix) for suffix in ["_Videos", "_Checked"]):
+                        item.setForeground(QColor("red"))
                     else:
                         item.setForeground(QColor("gray"))
                     self.data_path_folder_list.addItem(item)
@@ -967,3 +969,5 @@ app.exec()
 
 # Stop the live stream when the application exits
 experiment_window.stop_live_stream()
+
+# TODO: Block recording parameters if recording already done or is in progress.
