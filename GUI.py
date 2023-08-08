@@ -878,7 +878,7 @@ class ProcessingWindow(QWidget):
 
         # Add the folders from the local path to the local path list widget
         if sys.platform == "linux":
-            local_path = Path("/path/to/local/folder")
+            local_path = Path("/home/matthias/Videos/")
             for folder in local_path.iterdir():
                 if folder.is_dir():
                     item = QListWidgetItem(folder.name)
