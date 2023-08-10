@@ -9,6 +9,9 @@ import os
 from pathlib import Path
 import json
 import platform
+import paramiko
+import socket
+import time
 
 
 class CustomTableWidget(QTableWidget):
@@ -114,10 +117,12 @@ class CustomTableWidget(QTableWidget):
 
 
 class ExperimentWindow(QWidget):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, tab_widget, *args, **kwargs):
         super(ExperimentWindow, self).__init__(*args, **kwargs)
 
         # Create widgets
+        self.tab_widget = tab_widget
+
         self.duration_spinbox = QSpinBox()
         self.duration_spinbox.setRange(0, 10000)
         self.duration_spinbox.setValue(7200)
@@ -711,6 +716,9 @@ class ExperimentWindow(QWidget):
         
         self.folder_lineedit.setDisabled(True)
         self.table_style_selector.setDisabled(True)
+        
+        if self.tab_widget.currentIndex() != 0:
+            self.tab_widget.setCurrentIndex(0)
 
     def save_data(self):
         # Get the current folder path
@@ -800,31 +808,48 @@ class ExperimentWindow(QWidget):
         return metadata != new_metadata
         
 class ProcessingWindow(QWidget):
-    def __init__(self):
+    def __init__(self, tab_widget):
         super().__init__()
         
+        self.tab_widget = tab_widget
         # Store a reference to the experiment window
-        self.experiment_window = ExperimentWindow()
+        self.experiment_window = ExperimentWindow(self.tab_widget)
 
         # Create a horizontal layout for the central widget
         layout = QHBoxLayout()
 
+        process_layout = QVBoxLayout()
+        
+        layout.addLayout(process_layout)
         # Create buttons for the processing window
         crop_button = QPushButton("Crop Images")
         crop_button.clicked.connect(self.on_crop_button_clicked)
-        layout.addWidget(crop_button)
+        process_layout.addWidget(crop_button)
+        
+        check_crops = QPushButton("Check Crops")
+        check_crops.clicked.connect(self.on_check_crops_clicked)
+        process_layout.addWidget(check_crops)
 
         make_videos_button = QPushButton("Make Videos")
         make_videos_button.clicked.connect(self.on_make_videos_button_clicked)
-        layout.addWidget(make_videos_button)
+        process_layout.addWidget(make_videos_button)
 
         track_videos_button = QPushButton("Track Videos")
         track_videos_button.clicked.connect(self.on_track_videos_button_clicked)
-        layout.addWidget(track_videos_button)
+        process_layout.addWidget(track_videos_button)
+        
+        check_tracks_button = QPushButton("Check Tracks")
+        check_tracks_button.clicked.connect(self.on_check_tracks_button_clicked)
+        process_layout.addWidget(check_tracks_button)
         
         # Create a vertical layout for the folder lists
         folder_layout = QVBoxLayout()
         layout.addLayout(folder_layout)
+        
+        # Create a refresh button
+        refresh_button = QPushButton("Refresh")
+        refresh_button.clicked.connect(self.populate_folder_lists)
+        folder_layout.addWidget(refresh_button)
 
         # Create a label and list widget for the data path folders
         data_path_label = QLabel("Lab server videos:")
@@ -846,16 +871,76 @@ class ProcessingWindow(QWidget):
     def on_crop_button_clicked(self):
         # Launch the terminal and run the run_processimages command
         if sys.platform == "darwin":
-            QMessageBox.information(self, "Information", "This command is not yet implemented for remote execution and should be run from the workstation.")
-            return
+            # Run the SSH command with nohup on macOS without opening a new Terminal window
+            remote_user = "matthias"
+            remote_host = "mmrecorder"
+            remote_command = "bash /home/matthias/Tracking_Analysis/Tracktor/ProcessImages.sh"
+            ssh_command = f"ssh {remote_user}@{remote_host} {remote_command}"
+            nohup_command = f"nohup {ssh_command} > /dev/null 2>&1 &"
+            result = subprocess.run(nohup_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            # Check if the command completed successfully
+            if result.returncode == 0:
+                print("The command was successfully run.")
+            else:
+                print(f"The command failed with exit code {result.returncode}.")
+                print(f"Error output: {result.stderr.decode()}")
+            
+            # Unavailable method
+            # QMessageBox.information(self, "Information", "This command is not yet implemented for remote execution and should be run from the workstation.")
+            # return
         else:
             subprocess.Popen(["gnome-terminal", "--", "run_processimages"])
+        
+        self.populate_folder_lists()
+            
+    def on_check_crops_clicked(self):
+        # Launch the terminal and run the check_crops command
+        if sys.platform == "darwin":
+            # Run the SSH command in a new Terminal window on macOS
+            remote_user = "matthias"
+            remote_host = "mmrecorder"
+            remote_command = "bash /home/matthias/Tracking_Analysis/Tracktor/CheckCrops.sh"
+            ssh_command = f"ssh {remote_user}@{remote_host} {remote_command}; exit"
+            os.system(f"osascript -e 'tell application \"Terminal\" to do script \"{ssh_command}\"'")
+            
+            # Wait for the check_crops command to finish
+            while True:
+                time.sleep(1)
+                result = subprocess.run(
+                    ["pgrep", "-f", remote_command],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                if result.returncode != 0:
+                    break
+
+            # Call the populate_folder_lists function
+            self.populate_folder_lists()
+        else:
+            subprocess.Popen(["gnome-terminal", "--", "check_crops"])
+            
+        
 
     def on_make_videos_button_clicked(self):
         # Launch the terminal and run the run_makevideos command
         if sys.platform == "darwin":
-            QMessageBox.information(self, "Information", "This command is not yet implemented for remote execution and should be run from the workstation.")
-            return
+            # Run the SSH command with nohup on macOS without opening a new Terminal window
+            remote_user = "matthias"
+            remote_host = "mmrecorder"
+            remote_command = "bash /home/matthias/Tracking_Analysis/Tracktor/MakeVideos.sh"
+            ssh_command = f"ssh {remote_user}@{remote_host} {remote_command}"
+            nohup_command = f"nohup {ssh_command} > /dev/null 2>&1 &"
+            result = subprocess.run(nohup_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            # Check if the command completed successfully
+            if result.returncode == 0:
+                print("The command was successfully run.")
+            else:
+                print(f"The command failed with exit code {result.returncode}.")
+                print(f"Error output: {result.stderr.decode()}")
+                                
+            self.populate_folder_lists()
         else:
             subprocess.Popen(["gnome-terminal", "--", "run_makevideos"])
 
@@ -866,6 +951,49 @@ class ProcessingWindow(QWidget):
             return
         else:
             subprocess.Popen(["gnome-terminal", "--", "balltracker"])
+            
+    def on_check_tracks_button_clicked(self):
+        if sys.platform == "darwin":
+            # Run the SSH command with nohup on macOS without opening a new Terminal window
+            remote_user = "matthias"
+            remote_host = "mmrecorder"
+            remote_command = "bash /home/matthias/Tracking_Analysis/Tracktor/CheckTracks.sh"
+            ssh_command = f"ssh {remote_user}@{remote_host} {remote_command}"
+            nohup_command = f"nohup {ssh_command} > /dev/null 2>&1 &"
+            result = subprocess.run(nohup_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            # Check if the command completed successfully
+            if result.returncode == 0:
+                print("The command was successfully run.")
+            else:
+                print(f"The command failed with exit code {result.returncode}.")
+                print(f"Error output: {result.stderr.decode()}")
+        
+            
+    def check_metadata(self, folder) -> bool:
+        # Load the variables registry
+        with open("variables_registry.json", "r") as f:
+            variables_registry = json.load(f)
+
+        # Load the metadata file
+        metadata_path = Path(folder) / "metadata.json"
+        if metadata_path.exists():
+            with open(metadata_path, "r") as f:
+                metadata = json.load(f)
+        else:
+            return False
+
+        # Check if all variables from the registry are present in the metadata
+        if not all(variable in metadata["Variable"] for variable in variables_registry):
+            return False
+
+        # Check if all columns have an associated value for each variable
+        for variable, values in metadata.items():
+            if variable != "Variable":
+                if not all(value != "" for value in values):
+                    return False
+
+        return True
             
     def populate_folder_lists(self):
         # Clear the list widgets
@@ -881,7 +1009,10 @@ class ProcessingWindow(QWidget):
                 if folder.is_dir():
                     item = QListWidgetItem(folder.name)
                     if any(folder.name.endswith(suffix) for suffix in ["_Tracked", ]):
-                        item.setForeground(QColor("green"))
+                        if self.check_metadata(folder):
+                            item.setForeground(QColor("green"))
+                        else:
+                            item.setForeground(QColor("orange"))
                     elif any(folder.name.endswith(suffix) for suffix in ["_Videos", "_Checked"]):
                         item.setForeground(QColor("red"))
                     else:
@@ -899,6 +1030,50 @@ class ProcessingWindow(QWidget):
                     else:
                         item.setForeground(QColor("gray"))
                     self.local_path_folder_list.addItem(item)
+                    
+        if sys.platform == "darwin":
+            # Set the remote hostname and username
+            remote_host = "mmrecorder"
+            remote_user = "matthias"
+
+            # Set the remote path to list the folders
+            remote_path = "/home/matthias/Videos/"
+
+            # Run the 'ls' command on the remote machine using the 'ssh' command
+            ssh_command = f"ssh {remote_user}@{remote_host} ls -d {remote_path}*/"
+            result = subprocess.run(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            # Check if the command completed successfully
+            if result.returncode == 0:
+                # Get the list of folders from the command output
+                folder_names = result.stdout.decode().splitlines()
+
+                # Add the folders to the GUI
+                for folder_name in folder_names:
+                    folder_name = Path(folder_name).name
+                    item = QListWidgetItem(folder_name)
+                    if any(folder_name.endswith(suffix) for suffix in ["_Checked"]):
+                        item.setForeground(QColor("green"))
+                    elif any(folder_name.endswith(suffix) for suffix in ["_Recorded"]):
+                        item.setForeground(QColor("blue"))
+                    elif any(folder_name.endswith(suffix) for suffix in ["_Cropped", "_Processing"]):
+                        item.setForeground(QColor("orange"))
+                    else:
+                        item.setForeground(QColor("red"))
+                    self.local_path_folder_list.addItem(item)
+            else:
+                # Print an error message if the command failed
+                print(f"Error: {result.stderr.decode()}")
+                
+        self.data_path_folder_list.itemClicked.connect(self.on_data_path_folder_clicked)
+        
+    def on_data_path_folder_clicked(self, item):
+        # Get the name of the clicked folder
+        folder_name = item.text()
+
+        folder_path = Path(self.experiment_window.DataPath) / folder_name
+        # Call the open_folder function with the name of the clicked folder
+        experiment_window.open_data_folder(folder_path)
             
 
 class MainWindow(QMainWindow):
@@ -908,19 +1083,31 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Multimaze Recorder")
         # Set the default size of the window
         self.resize(800, 600)
-        
+
+        # Create a vertical layout for the central widget
+        layout = QVBoxLayout()
+
         # Create a tab widget
-        tab_widget = QTabWidget()
-        self.setCentralWidget(tab_widget)
+        self.tab_widget = QTabWidget()
+        layout.addWidget(self.tab_widget)
 
         # Create the experiment window and add it as a tab
-        experiment_window = ExperimentWindow()
-        tab_widget.addTab(experiment_window, "Experiment")
+        experiment_window = ExperimentWindow(self.tab_widget)
+        self.tab_widget.addTab(experiment_window, "Experiment")
 
         # Create the processing window and add it as a tab
-        processing_window = ProcessingWindow()
-        tab_widget.addTab(processing_window, "Processing")
-        
+        processing_window = ProcessingWindow(self.tab_widget)
+        self.tab_widget.addTab(processing_window, "Processing")
+
+        # Create a terminal emulator widget
+        # self.terminal = QTermWidget()
+        # layout.addWidget(self.terminal)
+
+        # Set the layout for the central widget
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
+
         # Create a menu bar
         menu_bar = self.menuBar()
 
@@ -939,7 +1126,7 @@ class MainWindow(QMainWindow):
         save_action = QAction("&Save", self)
         save_action.triggered.connect(experiment_window.save_data)
         file_menu.addAction(save_action)
-        
+
         close_action = QAction("&Close", self)
         close_action.triggered.connect(experiment_window.close_folder)
         file_menu.addAction(close_action)
@@ -979,5 +1166,3 @@ app.exec()
 
 # Stop the live stream when the application exits
 experiment_window.stop_live_stream()
-
-# TODO: Block recording parameters if recording already done or is in progress.
