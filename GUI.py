@@ -151,7 +151,7 @@ class ExperimentWindow(QWidget):
         layout.addWidget(QLabel("Folder:"))
         layout.addWidget(self.folder_lineedit)
         layout.addWidget(button)
-        layout.addWidget(self.stop_button)
+        #layout.addWidget(self.stop_button)
         layout.addWidget(QLabel("Table layout:"))
         layout.addWidget(self.table_style_selector)
 
@@ -409,7 +409,7 @@ class ExperimentWindow(QWidget):
         # Terminate the recording thread
         self.recording_thread.terminate()
         
-        #TODO: fix 'AttributeError: 'Thread' object has no attribute 'terminate''
+        #TODO: fix 'AttributeError: 'Thread' object has no attribute 'terminate'
 
     
     def start_live_stream(self):
