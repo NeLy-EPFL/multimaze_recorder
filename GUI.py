@@ -136,6 +136,9 @@ class ExperimentWindow(QWidget):
         button = QPushButton("Start Recording")
         button.clicked.connect(self.on_button_clicked)
         
+        self.stop_button = QPushButton("Stop")
+        self.stop_button.clicked.connect(self.on_stop_button_clicked)
+        
         self.table_style_selector = QComboBox()
         self.table_style_selector.addItems(["arenas", "corridors"])
         self.table_style_selector.currentIndexChanged.connect(self.update_table_style)
@@ -149,6 +152,7 @@ class ExperimentWindow(QWidget):
         layout.addWidget(QLabel("Folder:"))
         layout.addWidget(self.folder_lineedit)
         layout.addWidget(button)
+        layout.addWidget(self.stop_button)
         layout.addWidget(QLabel("Table layout:"))
         layout.addWidget(self.table_style_selector)
 
@@ -160,6 +164,10 @@ class ExperimentWindow(QWidget):
         
         # Set the layout on the window
         self.setLayout(layout)
+        
+        # empty recording thread
+        
+        self.recording_thread = None
 
 
         # Intialize the updatable attributes to None
@@ -369,10 +377,10 @@ class ExperimentWindow(QWidget):
 
         # Start the recording in a separate thread
         if platform.system() == "Linux":
-            recording_thread = threading.Thread(
+            self.recording_thread = threading.Thread(
                 target=self.record_images, args=(folder, fps, duration)
             )
-            recording_thread.start()
+            self.recording_thread.start()
 
         elif platform.system() == "Darwin":
             QMessageBox.information(self, "Information", "Camera recording is not supported on laptop.")
@@ -397,8 +405,12 @@ class ExperimentWindow(QWidget):
         self.record_button.setEnabled(True)
         self.duration_spinbox.setEnabled(True)
         self.fps_spinbox.setEnabled(True)
+    
+    def on_stop_button_clicked(self):
+        # Terminate the recording thread
+        self.recording_thread.terminate()
 
-
+    
     def start_live_stream(self):
         # Start the live stream in a separate process
         if platform.system() == "Linux":
