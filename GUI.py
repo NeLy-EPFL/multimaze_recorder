@@ -371,9 +371,9 @@ class ExperimentWindow(QWidget):
         self.stop_live_stream()
 
         # Disable the record button and spinboxes
-        self.record_button.setEnabled(False)
-        self.duration_spinbox.setEnabled(False)
-        self.fps_spinbox.setEnabled(False)
+        #self.record_button.setEnabled(False)
+        #self.duration_spinbox.setEnabled(False)
+        #self.fps_spinbox.setEnabled(False)
 
         # Start the recording in a separate thread
         if platform.system() == "Linux":
@@ -402,6 +402,7 @@ class ExperimentWindow(QWidget):
         self.start_live_stream()
 
         # Re-enable the record button and spinboxes
+<<<<<<< Updated upstream
         self.record_button.setEnabled(True)
         self.duration_spinbox.setEnabled(True)
         self.fps_spinbox.setEnabled(True)
@@ -409,6 +410,11 @@ class ExperimentWindow(QWidget):
     def on_stop_button_clicked(self):
         # Terminate the recording thread
         self.recording_thread.terminate()
+=======
+        #self.record_button.setEnabled(True)
+        #self.duration_spinbox.setEnabled(True)
+        #self.fps_spinbox.setEnabled(True)
+>>>>>>> Stashed changes
 
     
     def start_live_stream(self):
@@ -954,7 +960,7 @@ class ProcessingWindow(QWidget):
                                 
             self.populate_folder_lists()
         else:
-            subprocess.Popen(["gnome-terminal", "--", "run_makevideos"])
+            subprocess.Popen(["gnome-terminal", "--", "/bin/bash", "/home/matthias/Tracking_Analysis/Tracktor/MakeVideos.sh"])
 
     def on_track_videos_button_clicked(self):
         # Launch the terminal and run the balltracker command
