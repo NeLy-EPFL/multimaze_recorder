@@ -9,7 +9,6 @@ import os
 from pathlib import Path
 import json
 import platform
-import paramiko
 import socket
 import time
 
@@ -402,7 +401,6 @@ class ExperimentWindow(QWidget):
         self.start_live_stream()
 
         # Re-enable the record button and spinboxes
-<<<<<<< Updated upstream
         self.record_button.setEnabled(True)
         self.duration_spinbox.setEnabled(True)
         self.fps_spinbox.setEnabled(True)
@@ -410,11 +408,6 @@ class ExperimentWindow(QWidget):
     def on_stop_button_clicked(self):
         # Terminate the recording thread
         self.recording_thread.terminate()
-=======
-        #self.record_button.setEnabled(True)
-        #self.duration_spinbox.setEnabled(True)
-        #self.fps_spinbox.setEnabled(True)
->>>>>>> Stashed changes
 
     
     def start_live_stream(self):
