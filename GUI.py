@@ -408,6 +408,8 @@ class ExperimentWindow(QWidget):
     def on_stop_button_clicked(self):
         # Terminate the recording thread
         self.recording_thread.terminate()
+        
+        #TODO: fix 'AttributeError: 'Thread' object has no attribute 'terminate''
 
     
     def start_live_stream(self):
