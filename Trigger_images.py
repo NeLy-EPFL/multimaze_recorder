@@ -30,10 +30,24 @@ presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
 
 duration = 10
 
-fps = 10
+fps = 30
 
-# Send the FPS value to Arduino
-ser.write(str(fps).encode('utf-8'))
+# Convert fps to a string and append a newline character
+fps_string = str(fps)
+
+# Encode the string as bytes and send it over the serial connection
+ser.write(fps_string.encode('utf-8'))
+
+#ser.flush()
+
+time.sleep(0.1)
+
+# # Wait for confirmation from Arduino
+# while ser.in_waiting == 0:
+#     pass
+
+confirmation = ser.readline().decode('utf-8').rstrip()
+print(confirmation)
 
 timeout = 1 / fps
 
@@ -73,7 +87,7 @@ def on_new_image(tis, userdata, folder=folder):
         return
 
     userdata.busy = True
-    framestart = time.perf_counter()
+    # framestart = time.perf_counter()
     userdata.image = tis.get_image()
     frame = tis.get_image()
 
@@ -87,17 +101,17 @@ def on_new_image(tis, userdata, folder=folder):
     # Save image in a separate thread
     threading.Thread(target=image.save, args=(filename,), daemon=True).start()
 
-    framestop = time.perf_counter()
-    print(
-        f"Image {userdata.imagecounter} saved. Time: {framestop - framestart:0.4f} seconds"
-    )
+    # framestop = time.perf_counter()
+    # print(
+    #     f"Image {userdata.imagecounter} saved. Time: {framestop - framestart:0.4f} seconds"
+    # )
     small_image = cv2.resize(frame, (640, 480))
     cv2.imshow("Window", small_image)
     cv2.waitKey(1)
 
-    displaystop = time.perf_counter()
+    # displaystop = time.perf_counter()
 
-    print(f"Display time: {displaystop - framestop:0.4f} seconds")
+    # print(f"Display time: {displaystop - framestop:0.4f} seconds")
 
     userdata.busy = False
 
@@ -141,16 +155,25 @@ count = 0
 
 programstart = time.perf_counter()
 while count < duration * fps:
-    if ser.in_waiting > 0:
-        print(f"reveived Arduino signal. Count: {count}")
+    # if ser.in_waiting > 0:
+    #     line = ser.readline().decode('utf-8').rstrip()
+    #     if line == "CAPTURE":
+    #         # Trigger image capture and processing
+    #         count += 1
+            
+    #         #print(f"reveived Arduino signal. Count: {count}")
+            
+    # Old code for software trigger
+    
     # triggerstart = time.perf_counter()
     # Tis.execute_command("TriggerSoftware")  # Send a software trigger
     time.sleep(timeout)
     count += 1
     # triggerstop = time.perf_counter()
-    # rint(f"Trigger time: {triggerstop - triggerstart:0.4f} seconds")
+    # print(f"Trigger time: {triggerstop - triggerstart:0.4f} seconds")
 programstop = time.perf_counter()
 print(f"Programm duration: {programstop - programstart:0.4f} seconds")
+print(f"Saved {CD.imagecounter} images")
 
 Tis.stop_pipeline()
 
