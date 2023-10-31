@@ -133,6 +133,7 @@ class ExperimentWindow(QWidget):
         self.folder_lineedit = QLineEdit()
 
         button = QPushButton("Start Recording")
+        
         button.clicked.connect(self.on_button_clicked)
         
         self.stop_button = QPushButton("Stop")
