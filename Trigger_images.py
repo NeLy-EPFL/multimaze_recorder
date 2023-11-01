@@ -38,7 +38,7 @@ fps_string = str(fps)
 # Encode the string as bytes and send it over the serial connection
 ser.write(fps_string.encode('utf-8'))
 
-#ser.flush()
+ser.flush()
 
 time.sleep(0.1)
 
