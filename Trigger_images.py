@@ -26,31 +26,6 @@ ser = serial.Serial("/dev/ttyACM0", 9600)
 
 presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
 
-# Video parameters
-
-duration = 10
-
-fps = 30
-
-# Convert fps to a string and append a newline character
-fps_string = str(fps)
-
-# Encode the string as bytes and send it over the serial connection
-ser.write(fps_string.encode('utf-8'))
-
-ser.flush()
-
-time.sleep(0.1)
-
-# # Wait for confirmation from Arduino
-# while ser.in_waiting == 0:
-#     pass
-
-confirmation = ser.readline().decode('utf-8').rstrip()
-print(confirmation)
-
-timeout = 1 / fps
-
 # timeout = math.floor(timeout * 1000) / 1000
 
 folder = Path("/home/matthias/Videos/Test_Htrigger/")
@@ -150,27 +125,30 @@ Tis.set_image_callback(on_new_image, CD)
 
 Tis.set_property("TriggerMode", "On")
 
-# Main loop triggering images at 1/fps Hz
-count = 0
+# Video parameters
+
+duration = 10
+
+fps = 30
+
+# Send start command and fps and duration values together
+ser.write(f"start,{fps},{duration}\n".encode('utf-8'))
+
+#ser.flush()
+
+time.sleep(0.1)
+
+confirmation = ser.readline().decode('utf-8').rstrip()
+print(confirmation)
 
 programstart = time.perf_counter()
-while count < duration * fps:
-    # if ser.in_waiting > 0:
-    #     line = ser.readline().decode('utf-8').rstrip()
-    #     if line == "CAPTURE":
-    #         # Trigger image capture and processing
-    #         count += 1
-            
-    #         #print(f"reveived Arduino signal. Count: {count}")
-            
-    # Old code for software trigger
-    
-    # triggerstart = time.perf_counter()
-    # Tis.execute_command("TriggerSoftware")  # Send a software trigger
-    time.sleep(timeout)
-    count += 1
-    # triggerstop = time.perf_counter()
-    # print(f"Trigger time: {triggerstop - triggerstart:0.4f} seconds")
+while True:
+    # Wait for Arduino to send "done" message
+    if ser.in_waiting > 0:
+        line = ser.readline().decode('utf-8').rstrip()
+        if line == "done":
+            break
+        
 programstop = time.perf_counter()
 print(f"Programm duration: {programstop - programstart:0.4f} seconds")
 print(f"Saved {CD.imagecounter} images")
