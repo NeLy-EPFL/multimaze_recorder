@@ -1,6 +1,7 @@
 import sys
 import cv2
 import numpy as np
+from tqdm import tqdm
 import time
 from pathlib import Path
 from PIL import Image
@@ -127,7 +128,7 @@ Tis.set_image_callback(on_new_image, CD)
 
 # Video parameters
 
-duration = 600
+duration = 30
 
 fps = 29
 
@@ -148,13 +149,20 @@ while ser.in_waiting:
     print(line)
 
 programstart = time.perf_counter()
-while True:
-    # Wait for Arduino to send "done" message
-    if ser.in_waiting > 0:
-        line = ser.readline().decode('utf-8').rstrip()
-        if line == "done":
-            break
-        
+
+# Create a progress bar
+with tqdm(total=duration, desc="Progress", bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}") as pbar:
+    while True:
+        # Wait for Arduino to send "done" message
+        if ser.in_waiting > 0:
+            line = ser.readline().decode('utf-8').rstrip()
+            if line == "done":
+                break
+        # Update the progress bar every second
+        elapsed_time = int(time.perf_counter() - programstart)
+        if elapsed_time > pbar.n:  # If more than a second has passed since last update
+            pbar.update(elapsed_time - pbar.n)  # Update progress bar to current elapsed time
+
 programstop = time.perf_counter()
 print(f"Programm duration: {programstop - programstart:0.4f} seconds")
 print(f"Saved {CD.imagecounter} images")
