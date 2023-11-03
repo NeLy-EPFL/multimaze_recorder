@@ -127,7 +127,7 @@ Tis.set_image_callback(on_new_image, CD)
 
 # Video parameters
 
-duration = 8
+duration = 600
 
 fps = 29
 

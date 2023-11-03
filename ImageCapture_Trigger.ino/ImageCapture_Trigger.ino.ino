@@ -5,7 +5,7 @@
 int fps;
 
 // Initialise a duration variable to store the experiment duration
-int duration;
+unsigned long duration;
 
 // Variable to store the interval between image captures
 int CAPTURE_INTERVAL;
@@ -15,8 +15,8 @@ unsigned long lastCaptureTime = 0;
 
 boolean  toggle1 = 0;
 
-int readInteger() {
-  int ret = 0;
+unsigned long readInteger() {
+  unsigned long ret = 0;
   while (true) {
     while (Serial.available() < 1) {
       ; // Wait for data to be available
@@ -123,6 +123,7 @@ void loop() {
 
       // Capture images for the specified duration
       unsigned long startTime = millis();
+      
       while (millis() - startTime < duration * 1000) {
         // Just wait while the ISR handles the image captures
       }
