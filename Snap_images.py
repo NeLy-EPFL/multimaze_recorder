@@ -7,6 +7,8 @@ import json
 import TIS
 from Utilities import *
 import sys
+import threading
+
 
 # os.environ['GST_DEBUG'] = '3' # Uncomment this line to see detailed debug information for the Gstreamer pipeline
 
@@ -86,15 +88,14 @@ last_toggle_time = time.perf_counter()
 start = time.perf_counter()
 while count < duration * fps:
     if Tis.snap_image(timeout):
+        
         frame = Tis.get_image()
 
         filename = folder.joinpath("image" + str(count) + ".jpg").as_posix()
         image = Image.fromarray(np.squeeze(frame), mode="L")
 
         image = image.crop((Left, Top, Right, Bottom))
-        image.save(
-            filename,
-        )
+        threading.Thread(target=image.save, args=(filename,), daemon=True).start()
 
         thumbnail = cv2.resize(frame, (640, 480))
         # Draw a blinking red dot on the top left corner of the thumbnail image
@@ -129,3 +130,4 @@ folder.rename(folder.parent.joinpath(folder.name + "_Recorded"))
 print("Program ends")
 
 # TODO: Make the dot red
+# TODO: prooftest the code speed and all

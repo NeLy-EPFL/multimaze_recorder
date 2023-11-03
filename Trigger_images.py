@@ -114,6 +114,8 @@ Tis.start_pipeline()
 Tis.applyProperties()
 
 camera = Tis.get_source()
+Tis.set_property("TriggerMode", "On")
+Tis.set_property("TriggerActivation", "Rising Edge")
 state = camera.get_property("tcam-properties-json")
 print(f"State of device is:\n{state}")
 
@@ -123,23 +125,27 @@ CD = CustomData(None)
 # Set the callback function
 Tis.set_image_callback(on_new_image, CD)
 
-Tis.set_property("TriggerMode", "On")
-
 # Video parameters
 
-duration = 10
+duration = 8
 
-fps = 30
+fps = 29
 
 # Send start command and fps and duration values together
-ser.write(f"start,{fps},{duration}\n".encode('utf-8'))
+ser.write(f"start\n".encode('utf-8'))
+time.sleep(0.2)
+ser.write(f"{fps}*".encode('utf-8'))
+time.sleep(0.2)
+ser.write(f"{duration}*".encode('utf-8'))
+
 
 #ser.flush()
 
-time.sleep(0.1)
+time.sleep(0.2)
 
-confirmation = ser.readline().decode('utf-8').rstrip()
-print(confirmation)
+while ser.in_waiting:
+    line = ser.readline().decode('utf-8')
+    print(line)
 
 programstart = time.perf_counter()
 while True:
