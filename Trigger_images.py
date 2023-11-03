@@ -164,10 +164,14 @@ with tqdm(total=duration, desc="Progress", bar_format="{l_bar}{bar}| {n_fmt}/{to
             pbar.update(elapsed_time - pbar.n)  # Update progress bar to current elapsed time
 
 programstop = time.perf_counter()
-print(f"Programm duration: {programstop - programstart:0.4f} seconds")
+print(f"Program duration: {programstop - programstart:0.4f} seconds")
 print(f"Saved {CD.imagecounter} images")
 
 Tis.stop_pipeline()
 
 ser.close()
 print("Program end")
+
+# TODO: Change the parameter passing like snap images
+# TODO: Integrate in the GUI
+# TODO: Add the red blinking dot
