@@ -27,9 +27,20 @@ ser = serial.Serial("/dev/ttyACM0", 9600)
 
 presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
 
-# timeout = math.floor(timeout * 1000) / 1000
+LocalPath = Path("/home/matthias/Videos/")
+RemotePath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
 
-folder = Path("/home/matthias/Videos/Test_Htrigger/")
+# Parse command-line arguments
+if len(sys.argv) != 4:
+    print(f"Usage: {sys.argv[0]} FOLDERNAME")
+    sys.exit(1)
+    
+FolderName = sys.argv[1]
+fps = int(sys.argv[2])
+duration = int(sys.argv[3])
+
+folder = LocalPath.joinpath(FolderName)
+folder.mkdir(parents=True, exist_ok=True)
 
 # Cropping parameters
 
@@ -125,12 +136,6 @@ CD = CustomData(None)
 
 # Set the callback function
 Tis.set_image_callback(on_new_image, CD)
-
-# Video parameters
-
-duration = 30
-
-fps = 29
 
 # Send start command and fps and duration values together
 ser.write(f"start\n".encode('utf-8'))
