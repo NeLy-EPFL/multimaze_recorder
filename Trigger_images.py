@@ -143,15 +143,23 @@ time.sleep(0.2)
 ser.write(f"{fps}*".encode('utf-8'))
 time.sleep(0.2)
 ser.write(f"{duration}*".encode('utf-8'))
-
-
-#ser.flush()
-
+print("Commands sent to Arduino, waiting for acknowledgment...")
 time.sleep(0.2)
 
-while ser.in_waiting:
-    line = ser.readline().decode('utf-8')
-    print(line)
+ack_received = False
+start_time = time.time()
+arduino_output = []
+while not ack_received:
+    while ser.in_waiting > 0:
+        line = ser.readline().decode('utf-8')
+        arduino_output.append(line)
+        ack_received = True
+    if time.time() - start_time > 10:  # Timeout after 10 seconds
+        raise Exception("No acknowledgment received from Arduino")
+    else:
+        time.sleep(0.1)  # Sleep for a short time to avoid busy waiting
+
+print(f"Acknowledgment received from Arduino: {''.join(arduino_output)}\n starting recording.")
 
 programstart = time.perf_counter()
 
