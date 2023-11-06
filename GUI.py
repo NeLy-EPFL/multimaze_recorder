@@ -200,8 +200,9 @@ class ExperimentWindow(QWidget):
         self.duration_spinbox.setValue(7200)
 
         self.fps_spinbox = QSpinBox()
-        self.fps_spinbox.setRange(0, 120)
+        self.fps_spinbox.setRange(0, 30)
         self.fps_spinbox.setValue(30)
+        self.fps_label = QLabel()
 
         self.folder_lineedit = QLineEdit()
 
@@ -223,7 +224,7 @@ class ExperimentWindow(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Duration:"))
         layout.addWidget(self.duration_spinbox)
-        layout.addWidget(QLabel("FPS:"))
+        layout.addWidget(self.fps_label)
         layout.addWidget(self.fps_spinbox)
         layout.addWidget(QLabel("Folder:"))
         layout.addWidget(self.folder_lineedit)
@@ -463,10 +464,21 @@ class ExperimentWindow(QWidget):
             self.table_style_selector.setDisabled(False)
 
     def on_hardware_checkbox_state_changed(self, state):
-        if state == Qt.checked:
+        # If the checkbox is checked, enable hardware triggering
+        
+        if state == 2:
             self.recording_script = "/home/matthias/multimaze_recorder/Trigger_images.py"
+            self.fps_spinbox.setRange(16, 29)
+            self.fps_spinbox.setValue(29)
+            self.fps_label.setText("FPS (range: 16-29):")
+            print(f"Hardware triggering enabled. Recording using {self.recording_script}")
+
         else:
             self.recording_script = "/home/matthias/multimaze_recorder/Snap_images.py"
+            self.fps_spinbox.setRange(1, 30)
+            self.fps_spinbox.setValue(30)
+            self.fps_label.setText("FPS (range: 1-30):")
+            print(f"Hardware triggering disabled. Recording using {self.recording_script}")
     
     def on_button_clicked(self):
         duration = self.duration_spinbox.value()
