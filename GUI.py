@@ -472,7 +472,7 @@ class ExperimentWindow(QWidget):
             self.fps_spinbox.setValue(29)
             self.fps_label.setText("FPS (range: 16-29):")
             print(f"Hardware triggering enabled. Recording using {self.recording_script}")
-
+            # TODO : fix arduino not triggering when launching from GUI
         else:
             self.recording_script = "/home/matthias/multimaze_recorder/Snap_images.py"
             self.fps_spinbox.setRange(1, 30)
