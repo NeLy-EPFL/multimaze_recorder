@@ -119,6 +119,79 @@ class ExperimentWindow(QWidget):
     def __init__(self, tab_widget, *args, **kwargs):
         super(ExperimentWindow, self).__init__(*args, **kwargs)
 
+        """
+        Experiment window
+        
+        This is the main window of the application.
+        
+        Attributes
+        ----------
+        tab_widget : QTabWidget
+            The tab widget that contains the experiment window
+        duration_spinbox : QSpinBox
+            A spinbox widget for setting the duration of the recording
+        fps_spinbox : QSpinBox
+            A spinbox widget for setting the frame rate of the recording
+        folder_lineedit : QLineEdit
+            A line edit widget for entering the name of the data folder
+        record_button : QPushButton
+            A button widget for starting the recording process
+        HardwareTrigger_checkbox : QCheckBox
+            A checkbox widget for enabling hardware triggering
+        stop_button : QPushButton
+            A button widget for stopping the recording process
+        table_style_selector : QComboBox
+            A combo box widget for selecting the layout of the table
+        table : QTableWidget
+            A table widget for displaying the metadata
+        folder_path : Path
+            The path to the currently open data folder
+        folder_open : bool
+            A boolean indicating whether a data folder is currently open
+        recording_thread : threading.Thread
+            A thread for running the recording process
+        live_stream_process : subprocess.Popen
+            A process for running the live stream
+        info_panel : QWidget
+            A widget for displaying information about the currently open data folder
+            
+        Methods
+        -------
+        create_table(metadata=None)
+            Create a new table widget using the provided metadata
+        update_table_style(index)
+            Update the table and metadata with the selected layout
+        detect_table_style(metadata)
+            Detect the layout of the table from the metadata
+        close_folder()
+            Close the currently open data folder
+        on_button_clicked()
+            Start the recording process
+        on_hardware_checkbox_state_changed
+            Enable or disable hardware triggering
+        record_images(folder, fps, duration)
+            Run the recording process with the selected settings
+        on_stop_button_clicked()
+            Terminate the recording thread
+        start_live_stream()
+            Start the live stream
+        stop_live_stream()
+            Stop the live stream
+        create_metadata(table=None)
+            Create a new metadata dictionary from the data in the table
+        check_data_access()
+            Check if the data folder can be accessed
+        create_data_folder(metadata=None)
+            Create a new data folder with the provided metadata
+        open_data_folder(folder_path=None)
+            Open an existing data folder
+        save_data()
+            Save the metadata to the currently open data folder
+        has_unsaved_changes()
+            Check if the metadata has unsaved changes
+        
+        """
+
         # Create widgets
         self.tab_widget = tab_widget
 
@@ -132,13 +205,16 @@ class ExperimentWindow(QWidget):
 
         self.folder_lineedit = QLineEdit()
 
-        button = QPushButton("Start Recording")
-        
-        button.clicked.connect(self.on_button_clicked)
-        
+        self.record_button = QPushButton("Start Recording")
+
+        self.record_button.clicked.connect(self.on_button_clicked)
+
         self.stop_button = QPushButton("Stop")
         self.stop_button.clicked.connect(self.on_stop_button_clicked)
         
+        self.HardwareTrigger_checkbox = QCheckBox("Hardware Trigger")
+        self.HardwareTrigger_checkbox.stateChanged.connect(self.on_hardware_checkbox_state_changed)
+
         self.table_style_selector = QComboBox()
         self.table_style_selector.addItems(["arenas", "corridors"])
         self.table_style_selector.currentIndexChanged.connect(self.update_table_style)
@@ -151,8 +227,16 @@ class ExperimentWindow(QWidget):
         layout.addWidget(self.fps_spinbox)
         layout.addWidget(QLabel("Folder:"))
         layout.addWidget(self.folder_lineedit)
-        layout.addWidget(button)
-        #layout.addWidget(self.stop_button)
+        
+        # Create a horizontal box layout for the record button and the checkbox
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.record_button)
+        hbox.addWidget(self.HardwareTrigger_checkbox)
+
+        # Add the hbox layout to the main layout
+        layout.addLayout(hbox)
+        
+        # layout.addWidget(self.stop_button)
         layout.addWidget(QLabel("Table layout:"))
         layout.addWidget(self.table_style_selector)
 
@@ -161,14 +245,13 @@ class ExperimentWindow(QWidget):
 
         # Add the table to the layout
         layout.addWidget(self.table)
-        
+
         # Set the layout on the window
         self.setLayout(layout)
-        
-        # empty recording thread
-        
-        self.recording_thread = None
 
+        # empty recording thread
+
+        self.recording_thread = None
 
         # Intialize the updatable attributes to None
 
@@ -176,18 +259,44 @@ class ExperimentWindow(QWidget):
 
         # Initialize the folder_open attribute
         self.folder_open = False
-        
+
         # Mac Datapath
         if platform.system() == "Darwin":
-            self.DataPath = Path("/Volumes/Ramdya-Lab/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos")
+            self.DataPath = Path(
+                "/Volumes/Ramdya-Lab/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos"
+            )
         # Linux Datapath
         if platform.system() == "Linux":
-            self.DataPath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
+            self.DataPath = Path(
+                "/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/"
+            )
+        
+        # Check if Arduino is available and enable hardware triggering if so
+        if os.path.exists("/dev/ttyACM0"):
+            self.HardwareTrigger_checkbox.setEnabled(True)
+            self.HardwareTrigger_checkbox.setChecked(True)
+        else:
+            self.HardwareTrigger_checkbox.setEnabled(False)
 
-    def create_table(self, metadata=None, table_style = "arenas"):
+    def create_table(self, metadata=None, table_style="arenas"):
+        """
+        Create a new table widget using the provided metadata
+        
+        Parameters
+        ----------
+        metadata : dict, optional
+            A dictionary containing the metadata for the table, by default None
+        table_style : str, optional
+            The layout style of the table, by default "arenas"
+            
+        Returns
+        -------
+        QTableWidget
+            A table widget containing the metadata
+        """
         # Create a table widget to display the data
         table = CustomTableWidget()
-        
+
         if table_style == "corridors":
             column_count = 1 + 9 * 6
             column_labels = ["Variable"]
@@ -263,7 +372,7 @@ class ExperimentWindow(QWidget):
             for row, value in enumerate(variables_registry):
                 value_item = QTableWidgetItem(value)
                 table.setItem(row, 0, value_item)
-            
+
         # Resize the rows and columns to fit their contents
         table.resizeRowsToContents()
         table.resizeColumnsToContents()
@@ -283,19 +392,18 @@ class ExperimentWindow(QWidget):
         table.set_cell_colors()
 
         return table
-    
+
     def update_table_style(self, index):
         # Get the selected layout from the combo box
         table_style = self.table_style_selector.itemText(index)
         # Update the table and metadata with the new layout
-        
+
         self.create_metadata(table_style=table_style)
         self.create_table(table_style=table_style)
-        
+
         layout = self.layout()
-        
+
         if not self.folder_open:
-            
             table = self.create_table(table_style=table_style)
             # Remove the existing table from the layout (if any)
             if self.table:
@@ -307,7 +415,7 @@ class ExperimentWindow(QWidget):
 
             # Store a reference to the new table in an attribute
             self.table = table
-        
+
     def detect_table_style(self, metadata):
         # Check if the metadata contains keys for the "corridor" layout
         if any(key.startswith("Arena1_Corridor") for key in metadata.keys()):
@@ -319,29 +427,27 @@ class ExperimentWindow(QWidget):
         else:
             return "arenas"
 
-
     def close_folder(self):
-        
         if self.folder_open == False:
             return
-        
+
         else:
             # Reset the folder_open attribute
             self.folder_open = False
-            
-             # Get the layout of the central widget
+
+            # Get the layout of the central widget
             layout = self.layout()
-            
+
             table = self.create_table()
 
             # Remove the existing table from the layout (if any)
             if self.table:
                 layout.removeWidget(self.table)
                 self.table.deleteLater()
-                
+
             # Store a reference to the new table in an attribute
             self.table = table
-                
+
             layout.removeWidget(self.info_panel)
 
             # Add the new table to the layout
@@ -352,10 +458,16 @@ class ExperimentWindow(QWidget):
 
             # Reset the folder_path attribute
             self.folder_path = None
-            
+
             self.folder_lineedit.setDisabled(False)
             self.table_style_selector.setDisabled(False)
 
+    def on_hardware_checkbox_state_changed(self, state):
+        if state == Qt.checked:
+            self.recording_script = "/home/matthias/multimaze_recorder/Trigger_images.py"
+        else:
+            self.recording_script = "/home/matthias/multimaze_recorder/Snap_images.py"
+    
     def on_button_clicked(self):
         duration = self.duration_spinbox.value()
         fps = self.fps_spinbox.value()
@@ -371,33 +483,36 @@ class ExperimentWindow(QWidget):
         self.stop_live_stream()
 
         # Disable the record button and spinboxes
-        #self.record_button.setEnabled(False)
-        #self.duration_spinbox.setEnabled(False)
-        #self.fps_spinbox.setEnabled(False)
+        self.record_button.setEnabled(False)
+        self.duration_spinbox.setEnabled(False)
+        self.fps_spinbox.setEnabled(False)
+        
+        print(f"Recording using {self.recording_script}")
 
         # Start the recording in a separate thread
         if platform.system() == "Linux":
             self.recording_thread = threading.Thread(
-                target=self.record_images, args=(folder, fps, duration)
+                target=self.record_images, args=(self.recording_script, folder, fps, duration)
             )
             self.recording_thread.start()
 
         elif platform.system() == "Darwin":
-            QMessageBox.information(self, "Information", "Camera recording is not supported on laptop.")
+            QMessageBox.information(
+                self, "Information", "Camera recording is not supported on laptop."
+            )
             return
 
-
-    def record_images(self, folder, fps, duration):
+    def record_images(self, script, folder, fps, duration):
         subprocess.run(
             [
                 "python",
-                "/home/matthias/multimaze_recorder/Snap_images.py",
+                script,
                 folder,
                 str(fps),
                 str(duration),
             ]
         )
-        
+
         # Restart the live stream after recording is finished
         self.start_live_stream()
 
@@ -405,14 +520,13 @@ class ExperimentWindow(QWidget):
         self.record_button.setEnabled(True)
         self.duration_spinbox.setEnabled(True)
         self.fps_spinbox.setEnabled(True)
-    
+
     def on_stop_button_clicked(self):
         # Terminate the recording thread
         self.recording_thread.terminate()
-        
-        #TODO: fix 'AttributeError: 'Thread' object has no attribute 'terminate'
 
-    
+        # TODO: fix 'AttributeError: 'Thread' object has no attribute 'terminate'
+
     def start_live_stream(self):
         # Start the live stream in a separate process
         if platform.system() == "Linux":
@@ -426,8 +540,8 @@ class ExperimentWindow(QWidget):
         # Stop the live stream by terminating the process
         if hasattr(self, "live_stream_process"):
             self.live_stream_process.terminate()
-            
-    def create_metadata(self, table=None, table_style = "arenas"):
+
+    def create_metadata(self, table=None, table_style="arenas"):
         # Create a new metadata dictionary
         metadata = {"Variable": []}
         if table_style == "corridors":
@@ -452,25 +566,26 @@ class ExperimentWindow(QWidget):
 
                         for col in range(1, table.columnCount()):
                             value_item = table.item(row, col)
-                            column_label = table.horizontalHeaderItem(
-                                col
-                            ).text()
+                            column_label = table.horizontalHeaderItem(col).text()
                             if value_item:
                                 value = value_item.text()
                                 metadata[column_label].append(value)
                             else:
                                 metadata[column_label].append("")
-        
+
         return metadata
-    
+
     def check_data_access(self):
         if not self.DataPath.exists():
-                # Display an error message and return
-                QMessageBox.critical(self, "Error", f"Cannot access the data folder. Check labserver connection.")
-                return False
+            # Display an error message and return
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Cannot access the data folder. Check labserver connection.",
+            )
+            return False
 
     def create_data_folder(self, metadata=None):
-        
         # Check if a folder is already open
         if self.folder_open:
             # Prompt the user to enter a new folder name
@@ -479,7 +594,7 @@ class ExperimentWindow(QWidget):
             )
             if not ok:
                 return
-            
+
             # Prompt the user to choose a table style
             table_style, ok = QInputDialog.getItem(
                 self,
@@ -493,10 +608,10 @@ class ExperimentWindow(QWidget):
             index = self.table_style_selector.findText(table_style)
             # Set the current index of the table style selector combo box
             self.table_style_selector.setCurrentIndex(index)
-            
+
             if not ok:
                 return
-        
+
         else:
             # If there is a folder name in the lineedit, use it, else prompt the user to enter a folder name
             if self.folder_lineedit.text():
@@ -508,9 +623,9 @@ class ExperimentWindow(QWidget):
                 )
                 if not ok:
                     return
-                
+
             table_style = self.table_style_selector.currentText()
-                
+
         folder_path = self.DataPath / folder_name
         # If the folder already exists, show a message box asking if the user wants to open the existing folder or choose a different name
         while folder_path.exists():
@@ -550,31 +665,26 @@ class ExperimentWindow(QWidget):
                     corridor_path.mkdir(parents=True, exist_ok=True)
 
             if self.folder_open:
-                
                 self.table.deleteLater()
                 table = self.create_table(table_style=table_style)
                 # Store a reference to the new table in an attribute
                 self.table = table
-                
+
             # Create experiment.json in the main folder
-            
-            metadata=self.create_metadata(table = self.table, table_style=table_style)
+
+            metadata = self.create_metadata(table=self.table, table_style=table_style)
             if self.check_data_access() == False:
                 return
             with open(folder_path / "metadata.json", "w") as f:
                 json.dump(metadata, f, indent=4)
-                    
-            
+
             # Open the new data folder
             self.open_data_folder(folder_path)
 
-
-
     def open_data_folder(self, folder_path=None):
-        
         if folder_path and str(self.DataPath) not in str(folder_path):
             return
-        
+
         # Prompt the user to select a folder if no folder path was provided
         if not folder_path:
             folder_path = QFileDialog.getExistingDirectory(
@@ -587,7 +697,7 @@ class ExperimentWindow(QWidget):
 
         # Convert the folder path to a Path object
         folder_path = Path(folder_path)
-        
+
         # Check if the selected folder has a valid structure
         valid_structure = True
         for i in range(1, 10):
@@ -630,8 +740,7 @@ class ExperimentWindow(QWidget):
                 return
             # Create a new metadata.json file if the user clicked "Yes"
             elif reply == QMessageBox.StandardButton.Yes:
-                
-                 # Prompt the user to choose a table style
+                # Prompt the user to choose a table style
                 table_style, ok = QInputDialog.getItem(
                     self,
                     "Choose Table Style",
@@ -644,11 +753,11 @@ class ExperimentWindow(QWidget):
                 index = self.table_style_selector.findText(table_style)
                 # Set the current index of the table style selector combo box
                 self.table_style_selector.setCurrentIndex(index)
-                
+
                 if not ok:
                     return
                 # Create a new metadata.json file in the selected folder
-                metadata=self.create_metadata(table_style=table_style)
+                metadata = self.create_metadata(table_style=table_style)
                 if self.check_data_access() == False:
                     return
                 with open(metadata_path, "w") as f:
@@ -660,15 +769,17 @@ class ExperimentWindow(QWidget):
         # Load the metadata from the selected folder
         with open(folder_path / "metadata.json", "r") as f:
             metadata = json.load(f)
-            
+
         table_style = self.detect_table_style(metadata)
-        
+
         # Update the layout selector combo box with the detected layout
         index = self.table_style_selector.findText(table_style)
         self.table_style_selector.setCurrentIndex(index)
 
         # Create a new table using the loaded metadata
-        table = self.create_table(metadata, table_style = self.table_style_selector.currentText())
+        table = self.create_table(
+            metadata, table_style=self.table_style_selector.currentText()
+        )
 
         # Get the layout of the central widget
         layout = self.layout()
@@ -727,10 +838,10 @@ class ExperimentWindow(QWidget):
 
         # Set the folder line edit to the selected folder
         self.folder_lineedit.setText(str(folder_path.name))
-        
+
         self.folder_lineedit.setDisabled(True)
         self.table_style_selector.setDisabled(True)
-        
+
         if self.tab_widget.currentIndex() != 0:
             self.tab_widget.setCurrentIndex(0)
 
@@ -741,23 +852,23 @@ class ExperimentWindow(QWidget):
         # If no folder path has been entered, check if the folder line edit is empty
         if not folder_path:
             folder_name = self.folder_lineedit.text()
-            
+
             # If the folder line edit is empty, prompt the user to choose a folder name
             if not folder_name:
-                metadata=self.create_metadata(table = self.table)
+                metadata = self.create_metadata(table=self.table)
 
                 # Call the create_data_folder method to create a new data folder with the given metadata
                 self.create_data_folder(metadata)
 
                 # Get the new folder path from the line edit
                 folder_path = Path(self.folder_lineedit.text())
-                
+
             else:
                 # Use the text from the folder line edit as the folder name
                 folder_path = self.DataPath / folder_name
 
                 self.create_data_folder()
-                metadata=self.create_metadata(table = self.table)
+                metadata = self.create_metadata(table=self.table)
 
                 # Save the updated metadata
                 if self.check_data_access() == False:
@@ -766,10 +877,9 @@ class ExperimentWindow(QWidget):
                     json.dump(metadata, f, indent=4)
 
         else:
-            
-            
-                
-            metadata=self.create_metadata(table = self.table, table_style = self.table_style_selector.currentText())
+            metadata = self.create_metadata(
+                table=self.table, table_style=self.table_style_selector.currentText()
+            )
 
             # Save the updated metadata
             if self.check_data_access() == False:
@@ -816,15 +926,16 @@ class ExperimentWindow(QWidget):
             metadata = json.load(f)
 
         # Create a new metadata dictionary from the data in the table
-        new_metadata = self.create_metadata(self.table, table_style = table_style)
+        new_metadata = self.create_metadata(self.table, table_style=table_style)
 
         # Compare the loaded metadata with the new metadata
         return metadata != new_metadata
-        
+
+
 class ProcessingWindow(QWidget):
     def __init__(self, tab_widget):
         super().__init__()
-        
+
         self.tab_widget = tab_widget
         # Store a reference to the experiment window
         self.experiment_window = ExperimentWindow(self.tab_widget)
@@ -833,13 +944,13 @@ class ProcessingWindow(QWidget):
         layout = QHBoxLayout()
 
         process_layout = QVBoxLayout()
-        
+
         layout.addLayout(process_layout)
         # Create buttons for the processing window
         crop_button = QPushButton("Crop Images")
         crop_button.clicked.connect(self.on_crop_button_clicked)
         process_layout.addWidget(crop_button)
-        
+
         check_crops = QPushButton("Check Crops")
         check_crops.clicked.connect(self.on_check_crops_clicked)
         process_layout.addWidget(check_crops)
@@ -851,15 +962,15 @@ class ProcessingWindow(QWidget):
         track_videos_button = QPushButton("Track Videos")
         track_videos_button.clicked.connect(self.on_track_videos_button_clicked)
         process_layout.addWidget(track_videos_button)
-        
+
         check_tracks_button = QPushButton("Check Tracks")
         check_tracks_button.clicked.connect(self.on_check_tracks_button_clicked)
         process_layout.addWidget(check_tracks_button)
-        
+
         # Create a vertical layout for the folder lists
         folder_layout = QVBoxLayout()
         layout.addLayout(folder_layout)
-        
+
         # Create a refresh button
         refresh_button = QPushButton("Refresh")
         refresh_button.clicked.connect(self.populate_folder_lists)
@@ -879,7 +990,7 @@ class ProcessingWindow(QWidget):
 
         # Populate the list widgets with the folders
         self.populate_folder_lists()
-        
+
         self.setLayout(layout)
 
     def on_crop_button_clicked(self):
@@ -888,10 +999,17 @@ class ProcessingWindow(QWidget):
             # Run the SSH command with nohup on macOS without opening a new Terminal window
             remote_user = "matthias"
             remote_host = "mmrecorder"
-            remote_command = "bash /home/matthias/Tracking_Analysis/Tracktor/ProcessImages.sh"
+            remote_command = (
+                "bash /home/matthias/Tracking_Analysis/Tracktor/ProcessImages.sh"
+            )
             ssh_command = f"ssh {remote_user}@{remote_host} {remote_command}"
             nohup_command = f"nohup {ssh_command} > /dev/null 2>&1 &"
-            result = subprocess.run(nohup_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            result = subprocess.run(
+                nohup_command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
 
             # Check if the command completed successfully
             if result.returncode == 0:
@@ -899,25 +1017,29 @@ class ProcessingWindow(QWidget):
             else:
                 print(f"The command failed with exit code {result.returncode}.")
                 print(f"Error output: {result.stderr.decode()}")
-            
+
             # Unavailable method
             # QMessageBox.information(self, "Information", "This command is not yet implemented for remote execution and should be run from the workstation.")
             # return
         else:
             subprocess.Popen(["gnome-terminal", "--", "run_processimages"])
-        
+
         self.populate_folder_lists()
-            
+
     def on_check_crops_clicked(self):
         # Launch the terminal and run the check_crops command
         if sys.platform == "darwin":
             # Run the SSH command in a new Terminal window on macOS
             remote_user = "matthias"
             remote_host = "mmrecorder"
-            remote_command = "bash /home/matthias/Tracking_Analysis/Tracktor/CheckCrops.sh"
+            remote_command = (
+                "bash /home/matthias/Tracking_Analysis/Tracktor/CheckCrops.sh"
+            )
             ssh_command = f"ssh {remote_user}@{remote_host} {remote_command}; exit"
-            os.system(f"osascript -e 'tell application \"Terminal\" to do script \"{ssh_command}\"'")
-            
+            os.system(
+                f'osascript -e \'tell application "Terminal" to do script "{ssh_command}"\''
+            )
+
             # Wait for the check_crops command to finish
             while True:
                 time.sleep(1)
@@ -933,8 +1055,6 @@ class ProcessingWindow(QWidget):
             self.populate_folder_lists()
         else:
             subprocess.Popen(["gnome-terminal", "--", "check_crops"])
-            
-        
 
     def on_make_videos_button_clicked(self):
         # Launch the terminal and run the run_makevideos command
@@ -942,10 +1062,17 @@ class ProcessingWindow(QWidget):
             # Run the SSH command with nohup on macOS without opening a new Terminal window
             remote_user = "matthias"
             remote_host = "mmrecorder"
-            remote_command = "bash /home/matthias/Tracking_Analysis/Tracktor/MakeVideos.sh"
+            remote_command = (
+                "bash /home/matthias/Tracking_Analysis/Tracktor/MakeVideos.sh"
+            )
             ssh_command = f"ssh {remote_user}@{remote_host} {remote_command}"
             nohup_command = f"nohup {ssh_command} > /dev/null 2>&1 &"
-            result = subprocess.run(nohup_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            result = subprocess.run(
+                nohup_command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
 
             # Check if the command completed successfully
             if result.returncode == 0:
@@ -953,28 +1080,46 @@ class ProcessingWindow(QWidget):
             else:
                 print(f"The command failed with exit code {result.returncode}.")
                 print(f"Error output: {result.stderr.decode()}")
-                                
+
             self.populate_folder_lists()
         else:
-            subprocess.Popen(["gnome-terminal", "--", "/bin/bash", "/home/matthias/Tracking_Analysis/Tracktor/MakeVideos.sh"])
+            subprocess.Popen(
+                [
+                    "gnome-terminal",
+                    "--",
+                    "/bin/bash",
+                    "/home/matthias/Tracking_Analysis/Tracktor/MakeVideos.sh",
+                ]
+            )
 
     def on_track_videos_button_clicked(self):
         # Launch the terminal and run the balltracker command
         if sys.platform == "darwin":
-            QMessageBox.information(self, "Information", "This command is not yet implemented for remote execution and should be run from the workstation.")
+            QMessageBox.information(
+                self,
+                "Information",
+                "This command is not yet implemented for remote execution and should be run from the workstation.",
+            )
             return
         else:
             subprocess.Popen(["gnome-terminal", "--", "balltracker"])
-            
+
     def on_check_tracks_button_clicked(self):
         if sys.platform == "darwin":
             # Run the SSH command with nohup on macOS without opening a new Terminal window
             remote_user = "matthias"
             remote_host = "mmrecorder"
-            remote_command = "bash /home/matthias/Tracking_Analysis/Tracktor/CheckTracks.sh"
+            remote_command = (
+                "bash /home/matthias/Tracking_Analysis/Tracktor/CheckTracks.sh"
+            )
             ssh_command = f"ssh {remote_user}@{remote_host} {remote_command}"
             nohup_command = f"nohup {ssh_command} > /dev/null 2>&1 &"
-            result = subprocess.run(nohup_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            result = subprocess.run(
+                nohup_command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
 
             # Check if the command completed successfully
             if result.returncode == 0:
@@ -982,8 +1127,7 @@ class ProcessingWindow(QWidget):
             else:
                 print(f"The command failed with exit code {result.returncode}.")
                 print(f"Error output: {result.stderr.decode()}")
-        
-            
+
     def check_metadata(self, folder) -> bool:
         # Load the variables registry
         with open("variables_registry.json", "r") as f:
@@ -1008,7 +1152,7 @@ class ProcessingWindow(QWidget):
                     return False
 
         return True
-            
+
     def populate_folder_lists(self):
         # Clear the list widgets
         self.data_path_folder_list.clear()
@@ -1022,12 +1166,20 @@ class ProcessingWindow(QWidget):
             for folder in data_path.iterdir():
                 if folder.is_dir():
                     item = QListWidgetItem(folder.name)
-                    if any(folder.name.endswith(suffix) for suffix in ["_Tracked", ]):
+                    if any(
+                        folder.name.endswith(suffix)
+                        for suffix in [
+                            "_Tracked",
+                        ]
+                    ):
                         if self.check_metadata(folder):
                             item.setForeground(QColor("green"))
                         else:
                             item.setForeground(QColor("orange"))
-                    elif any(folder.name.endswith(suffix) for suffix in ["_Videos", "_Checked"]):
+                    elif any(
+                        folder.name.endswith(suffix)
+                        for suffix in ["_Videos", "_Checked"]
+                    ):
                         item.setForeground(QColor("red"))
                     else:
                         item.setForeground(QColor("gray"))
@@ -1039,12 +1191,15 @@ class ProcessingWindow(QWidget):
             for folder in local_path.iterdir():
                 if folder.is_dir():
                     item = QListWidgetItem(folder.name)
-                    if any(folder.name.endswith(suffix) for suffix in ["_Tracked", "_Videos", "_Checked"]):
+                    if any(
+                        folder.name.endswith(suffix)
+                        for suffix in ["_Tracked", "_Videos", "_Checked"]
+                    ):
                         item.setForeground(QColor("green"))
                     else:
                         item.setForeground(QColor("gray"))
                     self.local_path_folder_list.addItem(item)
-                    
+
         if sys.platform == "darwin":
             # Set the remote hostname and username
             remote_host = "mmrecorder"
@@ -1055,7 +1210,9 @@ class ProcessingWindow(QWidget):
 
             # Run the 'ls' command on the remote machine using the 'ssh' command
             ssh_command = f"ssh {remote_user}@{remote_host} ls -d {remote_path}*/"
-            result = subprocess.run(ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            result = subprocess.run(
+                ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
 
             # Check if the command completed successfully
             if result.returncode == 0:
@@ -1070,7 +1227,10 @@ class ProcessingWindow(QWidget):
                         item.setForeground(QColor("green"))
                     elif any(folder_name.endswith(suffix) for suffix in ["_Recorded"]):
                         item.setForeground(QColor("blue"))
-                    elif any(folder_name.endswith(suffix) for suffix in ["_Cropped", "_Processing"]):
+                    elif any(
+                        folder_name.endswith(suffix)
+                        for suffix in ["_Cropped", "_Processing"]
+                    ):
                         item.setForeground(QColor("orange"))
                     else:
                         item.setForeground(QColor("red"))
@@ -1078,9 +1238,9 @@ class ProcessingWindow(QWidget):
             else:
                 # Print an error message if the command failed
                 print(f"Error: {result.stderr.decode()}")
-                
+
         self.data_path_folder_list.itemClicked.connect(self.on_data_path_folder_clicked)
-        
+
     def on_data_path_folder_clicked(self, item):
         # Get the name of the clicked folder
         folder_name = item.text()
@@ -1088,11 +1248,26 @@ class ProcessingWindow(QWidget):
         folder_path = Path(self.experiment_window.DataPath) / folder_name
         # Call the open_folder function with the name of the clicked folder
         experiment_window.open_data_folder(folder_path)
-            
+
 
 class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
+
+        """
+        Main window of the application.
+        
+        Attributes
+        ----------
+        tab_widget : QTabWidget
+            The tab widget containing the experiment and processing windows.
+        
+        Methods
+        ---------
+        closeEvent : override
+            Called when the window is closed. Handles 1) checking for unsaved changes in the experiment window, 2) closing the live stream, and 3) closing the application.
+        
+        """
 
         self.setWindowTitle("Multimaze Recorder")
         # Set the default size of the window
@@ -1144,12 +1319,11 @@ class MainWindow(QMainWindow):
         close_action = QAction("&Close", self)
         close_action.triggered.connect(experiment_window.close_folder)
         file_menu.addAction(close_action)
-        
+
     def closeEvent(self, event):
         # Check if there are unsaved changes in the experiment window
         if experiment_window.has_unsaved_changes():
-            
-            print('unsaved changes')
+            print("unsaved changes")
             # Prompt the user to save data before closing
             reply = QMessageBox.question(
                 self,
@@ -1164,6 +1338,7 @@ class MainWindow(QMainWindow):
                 experiment_window.save_data()
 
         event.accept()
+
 
 app = QApplication(sys.argv)
 
