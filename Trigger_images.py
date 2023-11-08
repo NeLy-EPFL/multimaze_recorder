@@ -185,6 +185,6 @@ Tis.stop_pipeline()
 ser.close()
 print("Program end")
 
-# TODO: Change the parameter passing like snap images
 # TODO: Integrate in the GUI
 # TODO: Add the red blinking dot
+# TODO: Add the "recorded" labelling at the end of the recording
