@@ -3,6 +3,9 @@
 # activate the right conda environment
 source activate mazerecord
 
+# change to the right directory
+cd /home/matthias/multimaze_recorder
+
 
 # execute the check crops command
-python /home/matthias/multimaze_recorder/GUI.py
+python GUI.py

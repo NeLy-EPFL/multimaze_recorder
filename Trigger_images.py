@@ -201,3 +201,5 @@ print("Program end")
 # TODO: Integrate in the GUI
 # TODO: Add the red blinking dot
 # TODO: Add the "recorded" labelling at the end of the recording
+# TODO: Add the "recording" labelling during the recording
+# TODO: Common methods across scripts
