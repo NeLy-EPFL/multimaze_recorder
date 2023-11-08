@@ -79,6 +79,9 @@ void setup() {
   // Initialize serial communication at 9600 baud
   Serial.begin(9600);
 
+  // Send acknowledgment message
+  Serial.println("Arduino Ready");
+
 }
 
 ISR(TIMER1_COMPA_vect)

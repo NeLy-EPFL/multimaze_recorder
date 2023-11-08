@@ -25,6 +25,19 @@ import serial
 # Open the serial port
 ser = serial.Serial("/dev/ttyACM0", 9600)
 
+# Close and reopen the serial port to reset the Arduino
+ser.close()
+time.sleep(2)  # Wait for the Arduino to reset
+ser.open()
+
+# Wait for acknowledgment from Arduino
+while True:
+    if ser.in_waiting > 0:
+        line = ser.readline().decode('utf-8').rstrip()
+        if line == "Arduino Ready":
+            print("Arduino connection established")
+            break
+
 presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
 
 LocalPath = Path("/home/matthias/Videos/")
