@@ -97,19 +97,24 @@ while count < duration * fps:
         image = image.crop((Left, Top, Right, Bottom))
         threading.Thread(target=image.save, args=(filename,), daemon=True).start()
 
-        thumbnail = cv2.resize(frame, (640, 480))
-        # Draw a blinking red dot on the top left corner of the thumbnail image
-        if dot_state:
-            cv2.circle(thumbnail, (10, 10), 5, (0, 0, 255), -1)
+        # thumbnail = cv2.resize(frame, (640, 480))
+        # # Draw a blinking red dot on the top left corner of the thumbnail image
+        # if dot_state:
+        #     cv2.circle(thumbnail, (10, 10), 5, (0, 0, 255), -1)
 
-        # Check if enough time has elapsed since the last toggle
-        current_time = time.perf_counter()
-        if current_time - last_toggle_time >= 0.5:
-            # Toggle the dot_state variable
-            dot_state = not dot_state
-            # Update the last_toggle_time variable
-            last_toggle_time = current_time
+        # # Check if enough time has elapsed since the last toggle
+        # current_time = time.perf_counter()
+        # if current_time - last_toggle_time >= 0.5:
+        #     # Toggle the dot_state variable
+        #     dot_state = not dot_state
+        #     # Update the last_toggle_time variable
+        #     last_toggle_time = current_time
 
+        # cv2.imshow("Maze Recorder", thumbnail)
+        # cv2.waitKey(1)
+        
+        thumbnail = thumbnail(frame, last_toggle_time, dot_state)
+        
         cv2.imshow("Maze Recorder", thumbnail)
         cv2.waitKey(1)
 
