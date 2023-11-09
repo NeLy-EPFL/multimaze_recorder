@@ -12,6 +12,8 @@ import threading
 import os
 import math
 import gi
+from Utilities import *
+
 
 gi.require_version("Gst", "1.0")
 gi.require_version("Tcam", "1.0")
@@ -62,7 +64,6 @@ Top = 0
 Right = 3850
 Bottom = 3000
 
-
 class CustomData:
     """Example class for user data passed to the on new image callback function
     It is used for an image counter only. Also for a busy flag, so the callback
@@ -73,6 +74,9 @@ class CustomData:
         self.imagecounter = 0
         self.image = image
         self.busy = False
+        self.dot_state = False
+        self.last_toggle_time = time.perf_counter()
+
 
 
 def on_new_image(tis, userdata, folder=folder):
@@ -105,8 +109,9 @@ def on_new_image(tis, userdata, folder=folder):
     # print(
     #     f"Image {userdata.imagecounter} saved. Time: {framestop - framestart:0.4f} seconds"
     # )
-    small_image = cv2.resize(frame, (640, 480))
-    cv2.imshow("Window", small_image)
+    thumbnail = create_thumbnail(frame, userdata)
+        
+    cv2.imshow("Maze Recorder", thumbnail)
     cv2.waitKey(1)
 
     # displaystop = time.perf_counter()

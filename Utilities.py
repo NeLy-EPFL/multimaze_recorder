@@ -27,7 +27,7 @@ def progress(count, total, status=""):
     sys.stdout.flush()
 
 
-def thumbnail(frame, last_toggle_time, dot_state):
+def create_thumbnail(frame, userdata):
     """
     Create a thumbnail image with a blinking red dot on the top left corner
 
@@ -44,20 +44,27 @@ def thumbnail(frame, last_toggle_time, dot_state):
     -------
     numpy.ndarray
         Thumbnail image
+    float
+        Time since the last toggle
+    bool
+        State of the dot
 
     """
 
     thumbnail = cv2.resize(frame, (640, 480))
+    # Convert to RGB
+    thumbnail = cv2.cvtColor(thumbnail, cv2.COLOR_GRAY2RGB) 
+    
     # Draw a blinking red dot on the top left corner of the thumbnail image
-    if dot_state:
-        cv2.circle(thumbnail, (10, 10), 5, (0, 0, 255), -1)
+    if userdata.dot_state:
+        cv2.circle(thumbnail, (20, 20), 15, (0, 0, 255), -1)
 
     # Check if enough time has elapsed since the last toggle
     current_time = time.perf_counter()
-    if current_time - last_toggle_time >= 0.5:
+    if current_time - userdata.last_toggle_time >= 0.5:
         # Toggle the dot_state variable
-        dot_state = not dot_state
+        userdata.dot_state = not userdata.dot_state
         # Update the last_toggle_time variable
-        last_toggle_time = current_time
+        userdata.last_toggle_time = current_time
 
     return thumbnail
