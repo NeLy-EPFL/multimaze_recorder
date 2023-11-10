@@ -2,6 +2,8 @@ import sys
 import cv2
 import time
 from tqdm import tqdm
+import json
+import TIS
 
 
 def progress(count, total, status=""):
@@ -95,3 +97,53 @@ def update_progress_bar(pbar, start_time, total_time):
     total_minutes, total_seconds = divmod(total_remainder, 60)
     # Update the progress bar format to include the elapsed time and total time
     pbar.set_description(f"Recording time: {hours:02}:{minutes:02}:{seconds:02}/{total_hours:02}:{total_minutes:02}:{total_seconds:02}")
+    
+
+def configure_camera(presets, hardware_trigger=False):
+    """
+    Configure the camera based on the provided presets.
+
+    Parameters
+    ----------
+    presets : str
+        Path to the JSON file containing the camera presets.
+    
+    hardware_trigger : bool, optional
+        Whether to use hardware triggering, by default False
+
+    Returns
+    -------
+    TIS.TIS
+        Configured TIS object.
+    """
+
+    # Load camera configs
+    with open(presets) as jsonFile:
+        cameraconfigs = json.load(jsonFile)
+
+    format = cameraconfigs["format"]
+
+    # Create and configure TIS object
+    Tis = TIS.TIS(cameraconfigs["properties"])
+    Tis.open_device(
+        format["serial"],
+        format["width"],
+        format["height"],
+        format["framerate"],
+        TIS.SinkFormats.GRAY8,
+        False,
+    )
+
+    Tis.start_pipeline()
+    Tis.applyProperties()
+
+    camera = Tis.get_source()
+    
+    if hardware_trigger:
+        Tis.set_property("TriggerMode", "On")
+        Tis.set_property("TriggerActivation", "Rising Edge")
+    state = camera.get_property("tcam-properties-json")
+    
+    print(f"State of device is:\n{state}")
+
+    return Tis

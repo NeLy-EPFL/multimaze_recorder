@@ -35,36 +35,16 @@ folder.mkdir(parents=True, exist_ok=True)
 
 # Cropping parameters
 
-Left = 250
-Top = 0
-Right = 3850
-Bottom = 3000
-
-# Camera config
-
 with open(presets) as jsonFile:
     cameraconfigs = json.load(jsonFile)
     jsonFile.close()
 
-format = cameraconfigs["format"]
+# Extract cropping parameters
+cropping = cameraconfigs["cropping"]
+Left, Top, Right, Bottom = cropping.values()
 
-Tis = TIS.TIS(cameraconfigs["properties"])
-
-Tis.open_device(
-    format["serial"],
-    format["width"],
-    format["height"],
-    format["framerate"],
-    TIS.SinkFormats.GRAY8,
-    False,
-)
-
-Tis.start_pipeline()
-Tis.applyProperties()
-
-camera = Tis.get_source()
-state = camera.get_property("tcam-properties-json")
-print(f"State of device is:\n{state}")
+# Configure the camera
+Tis = configure_camera(presets)
 
 count = 0
 
@@ -77,10 +57,13 @@ last_toggle_time = time.perf_counter()
 
 with tqdm(total=duration, desc="Progress", bar_format="{l_bar}{bar}") as pbar:
     start = time.perf_counter()
+    last_update = start
     while count < duration * fps:
         if Tis.snap_image(timeout):
-            update_progress_bar(pbar, start, duration)
-            
+            if time.perf_counter() - last_update >= 1:
+                update_progress_bar(pbar, start, duration)
+                last_update = time.perf_counter()
+                
             frame = Tis.get_image()
 
             filename = folder.joinpath("image" + str(count) + ".jpg").as_posix()

@@ -47,5 +47,11 @@
             "value": "Off"
         }
 
-    ]
+    ],
+    "cropping": {
+        "Left": 250,
+        "Top": 0,
+        "Right": 3850,
+        "Bottom": 3000
+    }
 }

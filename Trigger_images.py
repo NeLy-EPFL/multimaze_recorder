@@ -35,21 +35,27 @@ ser.open()
 # Wait for acknowledgment from Arduino
 while True:
     if ser.in_waiting > 0:
-        line = ser.readline().decode('utf-8').rstrip()
+        line = ser.readline().decode("utf-8").rstrip()
         if line == "Arduino Ready":
             print("Arduino connection established")
             break
 
 presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
 
+# Load camera configs
+with open(presets) as jsonFile:
+    cameraconfigs = json.load(jsonFile)
+
 LocalPath = Path("/home/matthias/Videos/")
-RemotePath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
+RemotePath = Path(
+    "/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/"
+)
 
 # Parse command-line arguments
 if len(sys.argv) != 4:
     print(f"Usage: {sys.argv[0]} FOLDERNAME")
     sys.exit(1)
-    
+
 FolderName = sys.argv[1]
 fps = int(sys.argv[2])
 duration = int(sys.argv[3])
@@ -57,12 +63,10 @@ duration = int(sys.argv[3])
 folder = LocalPath.joinpath(FolderName)
 folder.mkdir(parents=True, exist_ok=True)
 
-# Cropping parameters
+# Extract cropping parameters
+cropping = cameraconfigs["cropping"]
+Left, Top, Right, Bottom = cropping.values()
 
-Left = 250
-Top = 0
-Right = 3850
-Bottom = 3000
 
 class CustomData:
     """Example class for user data passed to the on new image callback function
@@ -76,7 +80,6 @@ class CustomData:
         self.busy = False
         self.dot_state = False
         self.last_toggle_time = time.perf_counter()
-
 
 
 def on_new_image(tis, userdata, folder=folder):
@@ -105,49 +108,18 @@ def on_new_image(tis, userdata, folder=folder):
     # Save image in a separate thread
     threading.Thread(target=image.save, args=(filename,), daemon=True).start()
 
-    # framestop = time.perf_counter()
-    # print(
-    #     f"Image {userdata.imagecounter} saved. Time: {framestop - framestart:0.4f} seconds"
-    # )
-    thumbnail, userdata.dot_state, userdata.last_toggle_time = create_thumbnail(frame, userdata.dot_state, userdata.last_toggle_time)
-        
+    thumbnail, userdata.dot_state, userdata.last_toggle_time = create_thumbnail(
+        frame, userdata.dot_state, userdata.last_toggle_time
+    )
+
     cv2.imshow("Maze Recorder", thumbnail)
     cv2.waitKey(1)
-
-    # displaystop = time.perf_counter()
-
-    # print(f"Display time: {displaystop - framestop:0.4f} seconds")
 
     userdata.busy = False
 
 
-# Camera config
-
-with open(presets) as jsonFile:
-    cameraconfigs = json.load(jsonFile)
-    jsonFile.close()
-
-format = cameraconfigs["format"]
-
-Tis = TIS.TIS(cameraconfigs["properties"])
-
-Tis.open_device(
-    format["serial"],
-    format["width"],
-    format["height"],
-    format["framerate"],
-    TIS.SinkFormats.GRAY8,
-    False,
-)
-
-Tis.start_pipeline()
-Tis.applyProperties()
-
-camera = Tis.get_source()
-Tis.set_property("TriggerMode", "On")
-Tis.set_property("TriggerActivation", "Rising Edge")
-state = camera.get_property("tcam-properties-json")
-print(f"State of device is:\n{state}")
+# Configure the camera
+Tis = configure_camera(presets, hardware_trigger=True)
 
 # Create an instance of the CustomData class
 CD = CustomData(None)
@@ -156,11 +128,11 @@ CD = CustomData(None)
 Tis.set_image_callback(on_new_image, CD)
 
 # Send start command and fps and duration values together
-ser.write(f"start\n".encode('utf-8'))
+ser.write(f"start\n".encode("utf-8"))
 time.sleep(0.2)
-ser.write(f"{fps}*".encode('utf-8'))
+ser.write(f"{fps}*".encode("utf-8"))
 time.sleep(0.2)
-ser.write(f"{duration}*".encode('utf-8'))
+ser.write(f"{duration}*".encode("utf-8"))
 print("Commands sent to Arduino, waiting for acknowledgment...")
 time.sleep(0.2)
 
@@ -169,7 +141,7 @@ start_time = time.time()
 arduino_output = []
 while not ack_received:
     while ser.in_waiting > 0:
-        line = ser.readline().decode('utf-8')
+        line = ser.readline().decode("utf-8")
         arduino_output.append(line)
         ack_received = True
     if time.time() - start_time > 10:  # Timeout after 10 seconds
@@ -177,19 +149,27 @@ while not ack_received:
     else:
         time.sleep(0.1)  # Sleep for a short time to avoid busy waiting
 
-print(f"Acknowledgment received from Arduino: {''.join(arduino_output)}\n starting recording.")
+print(
+    f"Acknowledgment received from Arduino: {''.join(arduino_output)}\n starting recording."
+)
 
 
 # Create a loop to display progress and wait for the program to finish
 with tqdm(total=duration, desc="Progress", bar_format="{l_bar}{bar}") as pbar:
-    start = time.perf_counter()    
+    start = time.perf_counter()
+    last_update = start
     while True:
         # Wait for Arduino to send "done" message
         if ser.in_waiting > 0:
-            line = ser.readline().decode('utf-8').rstrip()
+            line = ser.readline().decode("utf-8").rstrip()
             if line == "done":
                 break
-        update_progress_bar(pbar, start, duration)
+
+        current_time = time.perf_counter()
+        # Update the progress bar every second
+        if current_time - last_update >= 1:
+            update_progress_bar(pbar, start, duration)
+            last_update = current_time
 
 programstop = time.perf_counter()
 print(f"Program duration: {programstop - start:0.4f} seconds")
