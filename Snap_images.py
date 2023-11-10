@@ -108,5 +108,3 @@ Tis.stop_pipeline()
 folder.rename(folder.parent.joinpath(folder.name + "_Recorded"))
 
 print("Program ends")
-
-# TODO: prooftest the code speed and all

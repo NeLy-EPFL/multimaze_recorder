@@ -197,11 +197,10 @@ print(f"Saved {CD.imagecounter} images")
 
 Tis.stop_pipeline()
 
+# Rename the folder with '_Recorded' suffix to tag it as a recorded folder
+folder.rename(folder.parent.joinpath(folder.name + "_Recorded"))
+
 ser.close()
 print("Program end")
 
-# TODO: Integrate in the GUI
-# TODO: Add the red blinking dot
-# TODO: Add the "recorded" labelling at the end of the recording
-# TODO: Add the "recording" labelling during the recording
 # TODO: Common methods across scripts
