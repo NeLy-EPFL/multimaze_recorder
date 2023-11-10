@@ -33,17 +33,6 @@ presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
 folder = LocalPath.joinpath(FolderName)
 folder.mkdir(parents=True, exist_ok=True)
 
-# Create arena and corridor folders
-#print('Creating remote folders...')
-#arenas_folder = RemotePath.joinpath(folder.name)
-#arenas_folder.mkdir(parents=True, exist_ok=True)
-#for arena in range(1, 10):
-#    arena_folder = arenas_folder.joinpath(f"arena{arena}")
-#    arena_folder.mkdir(parents=True, exist_ok=True)
-#    for corridor in range(1, 7):
-#        corridor_folder = arena_folder.joinpath(f"corridor{corridor}")
-#        corridor_folder.mkdir(parents=True, exist_ok=True)
-
 # Cropping parameters
 
 Left = 250
@@ -85,26 +74,29 @@ time.sleep(2)
 dot_state = False
 last_toggle_time = time.perf_counter()
 
-start = time.perf_counter()
-while count < duration * fps:
-    if Tis.snap_image(timeout):
-        
-        frame = Tis.get_image()
 
-        filename = folder.joinpath("image" + str(count) + ".jpg").as_posix()
-        image = Image.fromarray(np.squeeze(frame), mode="L")
+with tqdm(total=duration, desc="Progress", bar_format="{l_bar}{bar}") as pbar:
+    start = time.perf_counter()
+    while count < duration * fps:
+        if Tis.snap_image(timeout):
+            update_progress_bar(pbar, start, duration)
+            
+            frame = Tis.get_image()
 
-        image = image.crop((Left, Top, Right, Bottom))
-        threading.Thread(target=image.save, args=(filename,), daemon=True).start()
-        
-        thumbnail, dot_state, last_toggle_time = create_thumbnail(frame, dot_state, last_toggle_time)
-        cv2.imshow("Maze Recorder", thumbnail)
-        cv2.waitKey(1)
+            filename = folder.joinpath("image" + str(count) + ".jpg").as_posix()
+            image = Image.fromarray(np.squeeze(frame), mode="L")
 
-        count += 1
-        progress(count, total, status='Recording')
+            image = image.crop((Left, Top, Right, Bottom))
+            threading.Thread(target=image.save, args=(filename,), daemon=True).start()
+            
+            thumbnail, dot_state, last_toggle_time = create_thumbnail(frame, dot_state, last_toggle_time)
+            cv2.imshow("Maze Recorder", thumbnail)
+            cv2.waitKey(1)
 
-stop = time.perf_counter()
+            count += 1
+            
+
+    stop = time.perf_counter()
 
 print(f"Captured {count} frames in {stop - start:0.4f} seconds")
 

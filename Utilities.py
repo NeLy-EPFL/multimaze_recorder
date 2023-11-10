@@ -1,6 +1,7 @@
 import sys
 import cv2
 import time
+from tqdm import tqdm
 
 
 def progress(count, total, status=""):
@@ -67,3 +68,30 @@ def create_thumbnail(frame, dot_state, last_toggle_time):
         last_toggle_time = current_time
 
     return thumbnail, dot_state, last_toggle_time
+
+def update_progress_bar(pbar, start_time, total_time):
+    """
+    Update the progress bar every second
+
+    Parameters
+    ----------
+    pbar : tqdm
+        Progress bar
+    start_time : float
+        Start time
+    total_time : float
+        Total time
+    """
+    # Update the progress bar every second
+    elapsed_time = int(time.perf_counter() - start_time)
+    if elapsed_time > pbar.n:  # If more than a second has passed since last update
+        pbar.update(elapsed_time - pbar.n)  # Update progress bar to current elapsed time
+
+    # Convert elapsed time to hours, minutes, and seconds
+    hours, remainder = divmod(elapsed_time, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    # Convert total time to hours, minutes, and seconds
+    total_hours, total_remainder = divmod(total_time, 3600)
+    total_minutes, total_seconds = divmod(total_remainder, 60)
+    # Update the progress bar format to include the elapsed time and total time
+    pbar.set_description(f"Recording time: {hours:02}:{minutes:02}:{seconds:02}/{total_hours:02}:{total_minutes:02}:{total_seconds:02}")

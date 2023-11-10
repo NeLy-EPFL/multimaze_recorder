@@ -179,23 +179,20 @@ while not ack_received:
 
 print(f"Acknowledgment received from Arduino: {''.join(arduino_output)}\n starting recording.")
 
-programstart = time.perf_counter()
 
-# Create a progress bar
-with tqdm(total=duration, desc="Progress", bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}") as pbar:
+# Create a loop to display progress and wait for the program to finish
+with tqdm(total=duration, desc="Progress", bar_format="{l_bar}{bar}") as pbar:
+    start = time.perf_counter()    
     while True:
         # Wait for Arduino to send "done" message
         if ser.in_waiting > 0:
             line = ser.readline().decode('utf-8').rstrip()
             if line == "done":
                 break
-        # Update the progress bar every second
-        elapsed_time = int(time.perf_counter() - programstart)
-        if elapsed_time > pbar.n:  # If more than a second has passed since last update
-            pbar.update(elapsed_time - pbar.n)  # Update progress bar to current elapsed time
+        update_progress_bar(pbar, start, duration)
 
 programstop = time.perf_counter()
-print(f"Program duration: {programstop - programstart:0.4f} seconds")
+print(f"Program duration: {programstop - start:0.4f} seconds")
 print(f"Saved {CD.imagecounter} images")
 
 Tis.stop_pipeline()
