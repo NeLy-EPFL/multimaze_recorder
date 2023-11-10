@@ -6,12 +6,15 @@ import time
 from pathlib import Path
 from PIL import Image
 import json
-import threading
+from concurrent.futures import ThreadPoolExecutor
 import gi
 import serial
 from Utilities import *
 
 # TODO: better commenting and function documentation
+
+# Create a ThreadPoolExecutor
+executor = ThreadPoolExecutor(max_workers=5)
 
 gi.require_version("Gst", "1.0")
 gi.require_version("Tcam", "1.0")
@@ -35,6 +38,9 @@ class CustomData:
         self.busy = False
         self.dot_state = False
         self.last_toggle_time = time.perf_counter()
+        
+def save_image(image, filename):
+    image.save(filename)
 
 def on_new_image(tis, userdata, folder, cropping):
     """
@@ -61,8 +67,8 @@ def on_new_image(tis, userdata, folder, cropping):
 
     image = image.crop((Left, Top, Right, Bottom))
 
-    # Save image in a separate thread
-    threading.Thread(target=image.save, args=(filename,), daemon=True).start()
+    # Submit the image saving task to the ThreadPoolExecutor
+    future = executor.submit(save_image, image, filename)
 
     thumbnail, userdata.dot_state, userdata.last_toggle_time = create_thumbnail(
         frame, userdata.dot_state, userdata.last_toggle_time
@@ -164,6 +170,8 @@ def main():
     print(f"Saved {CD.imagecounter} images")
 
     camera.stop_pipeline()
+    
+    executor.shutdown(wait=True)
 
     # Rename the folder with '_Recorded' suffix to tag it as a recorded folder
     folder.rename(folder.parent.joinpath(folder.name + "_Recorded"))

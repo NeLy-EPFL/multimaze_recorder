@@ -6,6 +6,7 @@ from PIL import Image
 import json
 import sys
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from Utilities import *
 
@@ -20,11 +21,15 @@ class Recorder:
         self.tis = configure_camera(self.presets)
         self.dot_state = False
         self.last_toggle_time = time.perf_counter()
+        self.executor = ThreadPoolExecutor(max_workers=5)
         
     def load_camera_configs(self):
         with open(self.presets) as jsonFile:
             camera_configs = json.load(jsonFile)
         return camera_configs
+    
+    def save_image(self, image, filename):
+        image.save(filename)
 
     def record(self, folder_name, fps, duration):
         folder = Path("/home/matthias/Videos/").joinpath(folder_name)
@@ -47,14 +52,16 @@ class Recorder:
                     filename = folder.joinpath("image" + str(count) + ".jpg").as_posix()
                     image = Image.fromarray(np.squeeze(frame), mode="L")
                     image = image.crop((self.left, self.top, self.right, self.bottom))
-                    threading.Thread(target=image.save, args=(filename,), daemon=True).start()
+                    future = self.executor.submit(self.save_image, image, filename)
 
                     thumbnail, self.dot_state, self.last_toggle_time = create_thumbnail(frame, self.dot_state, self.last_toggle_time)
                     cv2.imshow("Maze Recorder", thumbnail)
                     cv2.waitKey(1)
 
                     count += 1
-
+                    
+        recorder.executor.shutdown(wait=True)
+        
         print(f"Captured {count} frames in {time.perf_counter() - start:0.4f} seconds")
         folder.rename(folder.parent.joinpath(folder.name + "_Recorded"))
         print("Program ends")
