@@ -4,90 +4,70 @@ import time
 from pathlib import Path
 from PIL import Image
 import json
-import TIS
-from Utilities import *
 import sys
 import threading
+from tqdm import tqdm
+from Utilities import *
 
+# Better commenting and function documentation
 
-# os.environ['GST_DEBUG'] = '3' # Uncomment this line to see detailed debug information for the Gstreamer pipeline
+class Recorder:
+    def __init__(self, presets):
+        self.presets = presets
+        self.camera_configs = self.load_camera_configs()
+        self.cropping = self.camera_configs["cropping"]
+        self.left, self.top, self.right, self.bottom = self.cropping.values()
+        self.tis = configure_camera(self.presets)
+        self.dot_state = False
+        self.last_toggle_time = time.perf_counter()
+        
+    def load_camera_configs(self):
+        with open(self.presets) as jsonFile:
+            camera_configs = json.load(jsonFile)
+        return camera_configs
 
-# Parse command-line arguments
-if len(sys.argv) != 4:
-    print(f"Usage: {sys.argv[0]} FOLDERNAME FPS DURATION")
-    sys.exit(1)
+    def record(self, folder_name, fps, duration):
+        folder = Path("/home/matthias/Videos/").joinpath(folder_name)
+        folder.mkdir(parents=True, exist_ok=True)
+        count = 0
+        timeout = 1 / fps
+        
+        time.sleep(2)
 
-FolderName = sys.argv[1]
-fps = int(sys.argv[2])
-duration = int(sys.argv[3])
+        with tqdm(total=duration, desc="Progress", bar_format="{l_bar}{bar}") as pbar:
+            start = time.perf_counter()
+            last_update = start
+            while count < duration * fps:
+                if self.tis.snap_image(timeout):
+                    if time.perf_counter() - last_update >= 1:
+                        update_progress_bar(pbar, start, duration)
+                        last_update = time.perf_counter()
 
-# Record images
-timeout = 1 / fps
+                    frame = self.tis.get_image()
+                    filename = folder.joinpath("image" + str(count) + ".jpg").as_posix()
+                    image = Image.fromarray(np.squeeze(frame), mode="L")
+                    image = image.crop((self.left, self.top, self.right, self.bottom))
+                    threading.Thread(target=image.save, args=(filename,), daemon=True).start()
 
-total = duration * fps
+                    thumbnail, self.dot_state, self.last_toggle_time = create_thumbnail(frame, self.dot_state, self.last_toggle_time)
+                    cv2.imshow("Maze Recorder", thumbnail)
+                    cv2.waitKey(1)
 
-LocalPath = Path("/home/matthias/Videos/")
-RemotePath = Path("/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/")
+                    count += 1
 
-presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
-folder = LocalPath.joinpath(FolderName)
-folder.mkdir(parents=True, exist_ok=True)
+        print(f"Captured {count} frames in {time.perf_counter() - start:0.4f} seconds")
+        folder.rename(folder.parent.joinpath(folder.name + "_Recorded"))
+        print("Program ends")
 
-# Cropping parameters
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        print(f"Usage: {sys.argv[0]} FOLDERNAME FPS DURATION")
+        sys.exit(1)
 
-with open(presets) as jsonFile:
-    cameraconfigs = json.load(jsonFile)
-    jsonFile.close()
+    folder_name = sys.argv[1]
+    fps = int(sys.argv[2])
+    duration = int(sys.argv[3])
+    presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
 
-# Extract cropping parameters
-cropping = cameraconfigs["cropping"]
-Left, Top, Right, Bottom = cropping.values()
-
-# Configure the camera
-Tis = configure_camera(presets)
-
-count = 0
-
-time.sleep(2)
-
-# Initialize the dot_state variable
-dot_state = False
-last_toggle_time = time.perf_counter()
-
-
-with tqdm(total=duration, desc="Progress", bar_format="{l_bar}{bar}") as pbar:
-    start = time.perf_counter()
-    last_update = start
-    while count < duration * fps:
-        if Tis.snap_image(timeout):
-            if time.perf_counter() - last_update >= 1:
-                update_progress_bar(pbar, start, duration)
-                last_update = time.perf_counter()
-                
-            frame = Tis.get_image()
-
-            filename = folder.joinpath("image" + str(count) + ".jpg").as_posix()
-            image = Image.fromarray(np.squeeze(frame), mode="L")
-
-            image = image.crop((Left, Top, Right, Bottom))
-            threading.Thread(target=image.save, args=(filename,), daemon=True).start()
-            
-            thumbnail, dot_state, last_toggle_time = create_thumbnail(frame, dot_state, last_toggle_time)
-            cv2.imshow("Maze Recorder", thumbnail)
-            cv2.waitKey(1)
-
-            count += 1
-            
-
-    stop = time.perf_counter()
-
-print(f"Captured {count} frames in {stop - start:0.4f} seconds")
-
-
-# Stop the pipeline and clean up
-Tis.stop_pipeline()
-
-# Rename the folder with '_Recorded' suffix to tag it as a recorded folder
-folder.rename(folder.parent.joinpath(folder.name + "_Recorded"))
-
-print("Program ends")
+    recorder = Recorder(presets)
+    recorder.record(folder_name, fps, duration)
