@@ -97,8 +97,7 @@ while count < duration * fps:
         image = image.crop((Left, Top, Right, Bottom))
         threading.Thread(target=image.save, args=(filename,), daemon=True).start()
         
-        thumbnail = create_thumbnail(frame, userdata)
-        # TODO: Fix create_thumbnail function for this example
+        thumbnail, dot_state, last_toggle_time = create_thumbnail(frame, dot_state, last_toggle_time)
         cv2.imshow("Maze Recorder", thumbnail)
         cv2.waitKey(1)
 

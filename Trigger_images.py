@@ -109,7 +109,7 @@ def on_new_image(tis, userdata, folder=folder):
     # print(
     #     f"Image {userdata.imagecounter} saved. Time: {framestop - framestart:0.4f} seconds"
     # )
-    thumbnail = create_thumbnail(frame, userdata)
+    thumbnail, userdata.dot_state, userdata.last_toggle_time = create_thumbnail(frame, userdata.dot_state, userdata.last_toggle_time)
         
     cv2.imshow("Maze Recorder", thumbnail)
     cv2.waitKey(1)
