@@ -135,6 +135,7 @@ def configure_camera(presets, hardware_trigger=False):
     )
 
     Tis.start_pipeline()
+    time.sleep(2)
     Tis.applyProperties()
 
     camera = Tis.get_source()
