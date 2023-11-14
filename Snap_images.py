@@ -5,15 +5,13 @@ from pathlib import Path
 from PIL import Image
 import json
 import sys
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from Utilities import *
 
-# Better commenting and function documentation
-
 class Recorder:
     def __init__(self, presets):
+        """Initialize the Recorder with the given presets."""
         self.presets = presets
         self.camera_configs = self.load_camera_configs()
         self.cropping = self.camera_configs["cropping"]
@@ -24,14 +22,24 @@ class Recorder:
         self.executor = ThreadPoolExecutor(max_workers=5)
         
     def load_camera_configs(self):
+        """Load camera configurations from a JSON file."""
         with open(self.presets) as jsonFile:
             camera_configs = json.load(jsonFile)
         return camera_configs
     
     def save_image(self, image, filename):
+        """Save the given image to the specified filename."""
         image.save(filename)
 
     def record(self, folder_name, fps, duration):
+        """
+        Record video frames and save them as images.
+        
+        Parameters:
+        folder_name (str): The name of the folder where the images will be saved.
+        fps (int): The number of frames per second to capture.
+        duration (int): The duration of the recording in seconds.
+        """
         folder = Path("/home/matthias/Videos/").joinpath(folder_name)
         folder.mkdir(parents=True, exist_ok=True)
         count = 0
