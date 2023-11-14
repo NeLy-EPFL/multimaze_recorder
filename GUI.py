@@ -11,6 +11,7 @@ import json
 import platform
 import socket
 import time
+import numpy as np
 
 
 class CustomTableWidget(QTableWidget):
@@ -490,6 +491,9 @@ class ExperimentWindow(QWidget):
             self.create_data_folder()
         else:
             self.save_data()
+            
+        # Save the fps value to a npy file in the data folder
+        np.save(self.folder_path / "fps.npy", fps)
 
         # Stop the live stream
         self.stop_live_stream()
