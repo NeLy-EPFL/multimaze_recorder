@@ -59,7 +59,7 @@ def on_new_image(tis, userdata, folder, cropping):
     frame = tis.get_image()
 
     # Doing a sample image processing
-    userdata.imagecounter += 1
+    
     filename = folder.joinpath("image" + str(userdata.imagecounter) + ".jpg").as_posix()
     image = Image.fromarray(np.squeeze(frame), mode="L")
     
@@ -76,6 +76,8 @@ def on_new_image(tis, userdata, folder, cropping):
 
     cv2.imshow("Maze Recorder", thumbnail)
     cv2.waitKey(1)
+    
+    userdata.imagecounter += 1
 
     userdata.busy = False
 
