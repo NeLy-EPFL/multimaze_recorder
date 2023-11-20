@@ -198,7 +198,7 @@ class ExperimentWindow(QWidget):
 
         self.duration_spinbox = QSpinBox()
         self.duration_spinbox.setRange(0, 10000)
-        self.duration_spinbox.setValue(7200)
+        self.duration_spinbox.setValue(3600)
 
         self.fps_spinbox = QSpinBox()
         self.fps_spinbox.setRange(0, 30)

@@ -4,5 +4,6 @@
     "Period",
     "FeedingState",
     "Orientation",
-    "Light"
+    "Light",
+    "Crossing"
 ]
