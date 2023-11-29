@@ -213,9 +213,11 @@ class ExperimentWindow(QWidget):
 
         self.stop_button = QPushButton("Stop")
         self.stop_button.clicked.connect(self.on_stop_button_clicked)
-        
+
         self.HardwareTrigger_checkbox = QCheckBox("Hardware Trigger")
-        self.HardwareTrigger_checkbox.stateChanged.connect(self.on_hardware_checkbox_state_changed)
+        self.HardwareTrigger_checkbox.stateChanged.connect(
+            self.on_hardware_checkbox_state_changed
+        )
 
         self.table_style_selector = QComboBox()
         self.table_style_selector.addItems(["arenas", "corridors"])
@@ -229,7 +231,7 @@ class ExperimentWindow(QWidget):
         layout.addWidget(self.fps_spinbox)
         layout.addWidget(QLabel("Folder:"))
         layout.addWidget(self.folder_lineedit)
-        
+
         # Create a horizontal box layout for the record button and the checkbox
         hbox = QHBoxLayout()
         hbox.addWidget(self.record_button)
@@ -237,7 +239,7 @@ class ExperimentWindow(QWidget):
 
         # Add the hbox layout to the main layout
         layout.addLayout(hbox)
-        
+
         # layout.addWidget(self.stop_button)
         layout.addWidget(QLabel("Table layout:"))
         layout.addWidget(self.table_style_selector)
@@ -272,7 +274,7 @@ class ExperimentWindow(QWidget):
             self.DataPath = Path(
                 "/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/"
             )
-        
+
         # Check if Arduino is available and enable hardware triggering if so
         if os.path.exists("/dev/ttyACM0"):
             self.HardwareTrigger_checkbox.setEnabled(True)
@@ -283,14 +285,14 @@ class ExperimentWindow(QWidget):
     def create_table(self, metadata=None, table_style="arenas"):
         """
         Create a new table widget using the provided metadata
-        
+
         Parameters
         ----------
         metadata : dict, optional
             A dictionary containing the metadata for the table, by default None
         table_style : str, optional
             The layout style of the table, by default "arenas"
-            
+
         Returns
         -------
         QTableWidget
@@ -466,21 +468,27 @@ class ExperimentWindow(QWidget):
 
     def on_hardware_checkbox_state_changed(self, state):
         # If the checkbox is checked, enable hardware triggering
-        
+
         if state == 2:
-            self.recording_script = "/home/matthias/multimaze_recorder/Trigger_images.py"
+            self.recording_script = (
+                "/home/matthias/multimaze_recorder/Trigger_images.py"
+            )
             self.fps_spinbox.setRange(16, 29)
             self.fps_spinbox.setValue(29)
             self.fps_label.setText("FPS (range: 16-29):")
-            print(f"Hardware triggering enabled. Recording using {self.recording_script}")
+            print(
+                f"Hardware triggering enabled. Recording using {self.recording_script}"
+            )
             # TODO : fix arduino not triggering when launching from GUI
         else:
             self.recording_script = "/home/matthias/multimaze_recorder/Snap_images.py"
             self.fps_spinbox.setRange(1, 30)
             self.fps_spinbox.setValue(30)
             self.fps_label.setText("FPS (range: 1-30):")
-            print(f"Hardware triggering disabled. Recording using {self.recording_script}")
-    
+            print(
+                f"Hardware triggering disabled. Recording using {self.recording_script}"
+            )
+
     def on_button_clicked(self):
         duration = self.duration_spinbox.value()
         fps = self.fps_spinbox.value()
@@ -491,7 +499,7 @@ class ExperimentWindow(QWidget):
             self.create_data_folder()
         else:
             self.save_data()
-            
+
         # Save the fps value to a npy file in the data folder
         np.save(self.folder_path / "fps.npy", fps)
 
@@ -502,13 +510,14 @@ class ExperimentWindow(QWidget):
         self.record_button.setEnabled(False)
         self.duration_spinbox.setEnabled(False)
         self.fps_spinbox.setEnabled(False)
-        
+
         print(f"Recording using {self.recording_script}")
 
         # Start the recording in a separate thread
         if platform.system() == "Linux":
             self.recording_thread = threading.Thread(
-                target=self.record_images, args=(self.recording_script, folder, fps, duration)
+                target=self.record_images,
+                args=(self.recording_script, folder, fps, duration),
             )
             self.recording_thread.start()
 
@@ -992,6 +1001,14 @@ class ProcessingWindow(QWidget):
         refresh_button.clicked.connect(self.populate_folder_lists)
         folder_layout.addWidget(refresh_button)
 
+        # Create a search bar for the processing window
+        self.search_bar = QLineEdit()
+        self.search_bar.textChanged.connect(self.filter_folders)
+        # Add the search bar to the folder layout
+        search_bar_label = QLabel("Search:")
+        folder_layout.addWidget(search_bar_label)
+        folder_layout.addWidget(self.search_bar)
+
         # Create a label and list widget for the data path folders
         data_path_label = QLabel("Lab server videos:")
         folder_layout.addWidget(data_path_label)
@@ -1256,6 +1273,18 @@ class ProcessingWindow(QWidget):
                 print(f"Error: {result.stderr.decode()}")
 
         self.data_path_folder_list.itemClicked.connect(self.on_data_path_folder_clicked)
+
+        # Sort the items in the list
+        self.data_path_folder_list.sortItems()
+        self.local_path_folder_list.sortItems()
+
+    def filter_folders(self, text):
+        for i in range(self.data_path_folder_list.count()):
+            item = self.data_path_folder_list.item(i)
+            item.setHidden(text not in item.text())
+        for i in range(self.local_path_folder_list.count()):
+            item = self.local_path_folder_list.item(i)
+            item.setHidden(text not in item.text())
 
     def on_data_path_folder_clicked(self, item):
         # Get the name of the clicked folder
