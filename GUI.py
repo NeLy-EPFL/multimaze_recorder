@@ -205,6 +205,13 @@ class ExperimentWindow(QWidget):
         self.fps_spinbox.setValue(30)
         self.fps_label = QLabel()
 
+        self.experiment_type_selector = QComboBox()
+        self.experiment_type_selector.addItems(["Ball pushing", "Standard"])
+        self.experiment_type_selector.currentIndexChanged.connect(
+            self.on_experiment_type_changed
+        )
+        self.current_experiment_type = "Ball pushing"
+
         self.folder_lineedit = QLineEdit()
 
         self.record_button = QPushButton("Start Recording")
@@ -225,6 +232,8 @@ class ExperimentWindow(QWidget):
 
         # Create layout
         layout = QVBoxLayout()
+        layout.addWidget(QLabel("Experiment type:"))
+        layout.addWidget(self.experiment_type_selector)
         layout.addWidget(QLabel("Duration:"))
         layout.addWidget(self.duration_spinbox)
         layout.addWidget(self.fps_label)
@@ -274,6 +283,7 @@ class ExperimentWindow(QWidget):
             self.DataPath = Path(
                 "/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/"
             )
+            self.local_path = Path("/home/matthias/Videos/")
 
         # Check if Arduino is available and enable hardware triggering if so
         if os.path.exists("/dev/ttyACM0"):
@@ -465,6 +475,7 @@ class ExperimentWindow(QWidget):
 
             self.folder_lineedit.setDisabled(False)
             self.table_style_selector.setDisabled(False)
+            self.experiment_type_selector.setDisabled(False)
 
     def on_hardware_checkbox_state_changed(self, state):
         # If the checkbox is checked, enable hardware triggering
@@ -503,6 +514,9 @@ class ExperimentWindow(QWidget):
         # Save the fps value to a npy file in the data folder
         np.save(self.folder_path / "fps.npy", fps)
 
+        # Save the duration value to a npy file in the data folder
+        np.save(self.folder_path / "duration.npy", duration)
+
         # Stop the live stream
         self.stop_live_stream()
 
@@ -510,6 +524,8 @@ class ExperimentWindow(QWidget):
         self.record_button.setEnabled(False)
         self.duration_spinbox.setEnabled(False)
         self.fps_spinbox.setEnabled(False)
+        
+        # TODO: Fix this not properly disabling, and also apply it to situation where images already exist
 
         print(f"Recording using {self.recording_script}")
 
@@ -610,6 +626,18 @@ class ExperimentWindow(QWidget):
             )
             return False
 
+    def on_experiment_type_changed(self, index):
+        self.current_experiment_type = self.experiment_type_selector.itemText(index)
+        
+        # If the experiment type is standard, set the table style to "arenas" and disable the table style selector
+        if self.current_experiment_type == "Standard":
+            self.table_style_selector.setCurrentIndex(0)
+            self.table_style_selector.setDisabled(True)
+        
+        # If the experiment type is ball pushing, enable the table style selector
+        elif self.current_experiment_type == "Ball pushing":
+            self.table_style_selector.setDisabled(False)
+
     def create_data_folder(self, metadata=None):
         # Check if a folder is already open
         if self.folder_open:
@@ -619,16 +647,36 @@ class ExperimentWindow(QWidget):
             )
             if not ok:
                 return
-
-            # Prompt the user to choose a table style
-            table_style, ok = QInputDialog.getItem(
+            
+            # Prompt the user to choose an experiment type
+            experiment_type, ok = QInputDialog.getItem(
                 self,
-                "Choose Table Style",
-                "Choose a table style for the new data folder:",
-                ["arenas", "corridors"],
+                "Choose Experiment Type",
+                "Choose an experiment type for the new data folder:",
+                ["Ball pushing", "Standard"],
                 0,
                 False,
             )
+            if not ok:
+                return
+            
+            self.current_experiment_type = experiment_type
+            index = self.experiment_type_selector.findText(experiment_type)
+            
+            # If the experiment type is Standard, skip the table style selection and use the "arenas" layout
+            if experiment_type == "Standard":
+                table_style = "arenas"
+            elif experiment_type == "Ball pushing":
+
+                # Prompt the user to choose a table style
+                table_style, ok = QInputDialog.getItem(
+                    self,
+                    "Choose Table Style",
+                    "Choose a table style for the new data folder:",
+                    ["arenas", "corridors"],
+                    0,
+                    False,
+                )
             # Find the index of the item with the specified text
             index = self.table_style_selector.findText(table_style)
             # Set the current index of the table style selector combo box
@@ -684,10 +732,11 @@ class ExperimentWindow(QWidget):
                 arena_path = folder_path / f"arena{i}"
                 arena_path.mkdir(parents=True, exist_ok=True)
 
-                # Create subdirectories for each corridor
-                for j in range(1, 7):
-                    corridor_path = arena_path / f"corridor{j}"
-                    corridor_path.mkdir(parents=True, exist_ok=True)
+                if self.current_experiment_type == "Ball pushing":
+                    # Create subdirectories for each corridor
+                    for j in range(1, 7):
+                        corridor_path = arena_path / f"corridor{j}"
+                        corridor_path.mkdir(parents=True, exist_ok=True)
 
             if self.folder_open:
                 self.table.deleteLater()
@@ -730,12 +779,14 @@ class ExperimentWindow(QWidget):
             if not arena_path.is_dir():
                 valid_structure = False
                 break
-            for j in range(1, 7):
-                corridor_path = arena_path / f"corridor{j}"
-                if not corridor_path.is_dir():
-                    valid_structure = False
-                    break
 
+            if self.current_experiment_type == "Ball pushing":
+                for j in range(1, 7):
+                    corridor_path = arena_path / f"corridor{j}"
+                    if not corridor_path.is_dir():
+                        valid_structure = False
+                        break
+        # TODO: Fix wrong instances of this happening and also change the result of the reply
         if not valid_structure:
             # Show a message box asking for confirmation to open the folder
             reply = QMessageBox.question(
@@ -838,19 +889,57 @@ class ExperimentWindow(QWidget):
         # Check if the subfolders contain videos and .h5 files
         full = True
         processed = True
+        images = True
+        
         for i in range(1, 10):
-            for j in range(1, 7):
-                corridor_path = folder_path / f"arena{i}" / f"corridor{j}"
-                if not any(corridor_path.glob("*.mp4")):
+            arena_path = folder_path / f"arena{i}"
+            local_arena_path = self.local_path/ folder_path.name/ f"arena{i}"
+            
+            if self.current_experiment_type == "Standard":
+                
+                if not any(arena_path.glob("*.mp4")):
                     full = False
-                if not any(corridor_path.glob("*.h5")):
+                if not any(local_arena_path.glob("*.jpg")):
+                    images = False
+                if not any(arena_path.glob("*.h5")):
                     processed = False
+            elif self.current_experiment_type == "Ball pushing":
+                for j in range(1, 7):
+                    corridor_path = folder_path / f"arena{i}" / f"corridor{j}"
+                    local_corridor_path = self.local_path/ folder_path.name/ f"arena{i}" / f"corridor{j}"
+                    if not any(corridor_path.glob("*.mp4")):
+                        full = False
+                    if not any(local_corridor_path.glob("*.jpg")):
+                        images = False
+                    if not any(corridor_path.glob("*.h5")):
+                        processed = False
+
+        if full or images:
+            # Disable the duration and fps spinboxes
+            self.duration_spinbox.setDisabled(True)
+            self.fps_spinbox.setDisabled(True)
+            self.record_button.setDisabled(True)
+
+
+            # if there are duration and fps files, apply their value to the spinboxes
+            if (folder_path / "duration.npy").exists():
+                self.duration_spinbox.setValue(np.load(folder_path / "duration.npy"))
+            if (folder_path / "fps.npy").exists():
+                self.fps_spinbox.setValue(np.load(folder_path / "fps.npy"))
 
         # Add labels to display the status of the subfolders
         full_label = QLabel(f"Full: {'Yes' if full else 'No'}")
         processed_label = QLabel(f"Processed: {'Yes' if processed else 'No'}")
         info_layout.addWidget(full_label)
         info_layout.addWidget(processed_label)
+        
+        if images:
+            # send a message to the user to inform that images are available for this experiment to be processed
+            QMessageBox.information(
+                self,
+                "Information",
+                f"Images are available for this experiment to be processed.",
+            )
 
         self.info_panel = info_panel
 
@@ -866,6 +955,7 @@ class ExperimentWindow(QWidget):
 
         self.folder_lineedit.setDisabled(True)
         self.table_style_selector.setDisabled(True)
+        self.experiment_type_selector.setDisabled(True)
 
         if self.tab_widget.currentIndex() != 0:
             self.tab_widget.setCurrentIndex(0)
