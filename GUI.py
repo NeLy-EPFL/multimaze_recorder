@@ -14,110 +14,106 @@ import time
 import numpy as np
 
 
-class CustomTableWidget(QTableWidget):
+class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(MainWindow, self).__init__(*args, **kwargs)
 
-    def contextMenuEvent(self, event):
-        # Get the row and column that was clicked
-        row = self.rowAt(event.y())
-        col = self.columnAt(event.x())
+        """
+        Main window of the application.
+        
+        Attributes
+        ----------
+        tab_widget : QTabWidget
+            The tab widget containing the experiment and processing windows.
+        
+        Methods
+        ---------
+        closeEvent : override
+            Called when the window is closed. Handles 1) checking for unsaved changes in the experiment window, 2) closing the live stream, and 3) closing the application.
+        
+        """
 
-        # Create a context menu
-        menu = QMenu(self)
+        # Detect if the application is running on the experimental workstation
+        hostname = socket.gethostname()
 
-        # Add an action to fill all arenas
-        fill_all_action = QAction("Fill Experiment", self)
-        fill_all_action.triggered.connect(
-            lambda checked, row=row: self.fill_experiment(row)
-        )
-        menu.addAction(fill_all_action)
+        if hostname == "mmrecorder":
+            self.local = True
+        else:
+            self.local = False
 
-        # Add a separator
-        menu.addSeparator()
+        self.setWindowTitle("Multimaze Recorder")
+        # Set the default size of the window
+        self.resize(800, 600)
 
-        # Add an action to fill the selected arena
-        fill_arena_action = QAction("Fill Arena", self)
-        fill_arena_action.triggered.connect(
-            lambda checked, col=col, row=row: self.fill_arena(col, row)
-        )
-        menu.addAction(fill_arena_action)
+        # Create a vertical layout for the central widget
+        layout = QVBoxLayout()
 
-        # Show the context menu at the current mouse position
-        menu.exec(event.globalPos())
+        # Create a tab widget
+        self.tab_widget = QTabWidget()
+        layout.addWidget(self.tab_widget)
 
-    def fill_arena(self, col, row):
-        # Get the arena number from the column label
-        column_label = self.horizontalHeaderItem(col).text()
-        arena_number = int(column_label.split("_")[0][5:])
+        # Create the experiment window and add it as a tab
+        experiment_window = ExperimentWindow(self.tab_widget, self)
+        self.tab_widget.addTab(experiment_window, "Experiment")
 
-        # Prompt the user to enter a value
-        value, ok = QInputDialog.getText(self, f"Fill Arena {arena_number}", "Value:")
-        if not ok:
-            return
+        # Create the processing window and add it as a tab
+        processing_window = ProcessingWindow(self.tab_widget, self)
+        self.tab_widget.addTab(processing_window, "Processing")
 
-        # Find the columns for the given arena
-        for col in range(1, self.columnCount()):
-            column_label = self.horizontalHeaderItem(col).text()
-            if column_label.startswith(f"Arena{arena_number}_"):
-                # Set the value for the given row in the column
-                item = self.item(row, col)
-                if item:
-                    item.setText(value)
+        # Create a terminal emulator widget
+        # self.terminal = QTermWidget()
+        # layout.addWidget(self.terminal)
 
-    def fill_experiment(self, row):
-        # Prompt the user to enter a value
-        value, ok = QInputDialog.getText(self, "Fill Experiment", "Value:")
-        if not ok:
-            return
+        # Set the layout for the central widget
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
 
-        # Set the value for all cells in the given row
-        for col in range(1, self.columnCount()):
-            item = self.item(row, col)
-            if item:
-                item.setText(value)
+        # Create a menu bar
+        menu_bar = self.menuBar()
 
-    def add_empty_rows(self, row_count):
-        for _ in range(row_count):
-            row = self.rowCount()
-            self.insertRow(row)
-            # Add empty items to each cell of the new row
-            for col in range(self.columnCount()):
-                item = QTableWidgetItem("")
-                self.setItem(row, col, item)
+        # Create a "File" menu
+        file_menu = menu_bar.addMenu("&File")
 
-    def set_cell_colors(self):
-        # Define a list of colors to use for each arena
-        colors = [
-            "#F7DC6F",
-            "#82E0AA",
-            "#85C1E9",
-            "#BB8FCE",
-            "#F1948A",
-            "#6C88C4",
-            "#D35400",
-            "#FFBD00",
-            "#1ABC9C",
-        ]
+        # Add options to the "File" menu
+        new_action = QAction("&New", self)
+        new_action.triggered.connect(experiment_window.create_data_folder)
+        file_menu.addAction(new_action)
 
-        # Iterate over the cells of the table
-        for row in range(self.rowCount()):
-            for col in range(1, self.columnCount()):
-                # Get the arena number from the column label
-                column_label = self.horizontalHeaderItem(col).text()
-                arena_number = int(column_label.split("_")[0][5:])
+        open_action = QAction("&Open", self)
+        open_action.triggered.connect(experiment_window.open_data_folder)
+        file_menu.addAction(open_action)
 
-                # Get the color for this arena
-                color = colors[arena_number - 1]
+        save_action = QAction("&Save", self)
+        save_action.triggered.connect(experiment_window.save_data)
+        file_menu.addAction(save_action)
 
-                # Set the background color of the cell
-                item = self.item(row, col)
-                if item:
-                    item.setBackground(QColor(color))
+        close_action = QAction("&Close", self)
+        close_action.triggered.connect(experiment_window.close_folder)
+        file_menu.addAction(close_action)
+
+    def closeEvent(self, event):
+        # Check if there are unsaved changes in the experiment window
+        if experiment_window.has_unsaved_changes():
+            print("unsaved changes")
+            # Prompt the user to save data before closing
+            reply = QMessageBox.question(
+                self,
+                "Save Data",
+                "Would you like to save data before closing?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                # Save the data from the table
+                experiment_window.save_data()
+
+        event.accept()
 
 
 class ExperimentWindow(QWidget):
-    def __init__(self, tab_widget, *args, **kwargs):
+    def __init__(self, tab_widget, main_window, *args, **kwargs):
         super(ExperimentWindow, self).__init__(*args, **kwargs)
 
         """
@@ -194,6 +190,7 @@ class ExperimentWindow(QWidget):
         """
 
         # Create widgets
+        self.main_window = main_window
         self.tab_widget = tab_widget
 
         self.duration_spinbox = QSpinBox()
@@ -514,16 +511,18 @@ class ExperimentWindow(QWidget):
         print(f"Recording using {self.recording_script}")
 
         # Start the recording in a separate thread
-        if platform.system() == "Linux":
+        if self.main_window.local:
             self.recording_thread = threading.Thread(
                 target=self.record_images,
                 args=(self.recording_script, folder, fps, duration),
             )
             self.recording_thread.start()
 
-        elif platform.system() == "Darwin":
+        else:
             QMessageBox.information(
-                self, "Information", "Camera recording is not supported on laptop."
+                self,
+                "Information",
+                "Experiment recording is only possible on the Maze recorder workstation",
             )
             return
 
@@ -554,11 +553,11 @@ class ExperimentWindow(QWidget):
 
     def start_live_stream(self):
         # Start the live stream in a separate process
-        if platform.system() == "Linux":
+        if self.main_window.local:
             self.live_stream_process = subprocess.Popen(
                 ["python", "/home/matthias/multimaze_recorder/LiveStream.py"]
             )
-        elif platform.system() == "Darwin":
+        else:
             return
 
     def stop_live_stream(self):
@@ -958,12 +957,13 @@ class ExperimentWindow(QWidget):
 
 
 class ProcessingWindow(QWidget):
-    def __init__(self, tab_widget):
+    def __init__(self, tab_widget, main_window):
         super().__init__()
 
+        self.main_window = main_window
         self.tab_widget = tab_widget
         # Store a reference to the experiment window
-        self.experiment_window = ExperimentWindow(self.tab_widget)
+        self.experiment_window = ExperimentWindow(self.tab_widget, self.main_window)
 
         # Create a horizontal layout for the central widget
         layout = QHBoxLayout()
@@ -1028,7 +1028,10 @@ class ProcessingWindow(QWidget):
 
     def on_crop_button_clicked(self):
         # Launch the terminal and run the run_processimages command
-        if sys.platform == "darwin":
+        if self.main_window.local:
+            subprocess.Popen(["gnome-terminal", "--", "run_processimages"])
+
+        else:
             # Run the SSH command with nohup on macOS without opening a new Terminal window
             remote_user = "matthias"
             remote_host = "mmrecorder"
@@ -1054,14 +1057,15 @@ class ProcessingWindow(QWidget):
             # Unavailable method
             # QMessageBox.information(self, "Information", "This command is not yet implemented for remote execution and should be run from the workstation.")
             # return
-        else:
-            subprocess.Popen(["gnome-terminal", "--", "run_processimages"])
 
         self.populate_folder_lists()
 
     def on_check_crops_clicked(self):
         # Launch the terminal and run the check_crops command
-        if sys.platform == "darwin":
+        if self.main_window.local:
+            subprocess.Popen(["gnome-terminal", "--", "check_crops"])
+
+        else:
             # Run the SSH command in a new Terminal window on macOS
             remote_user = "matthias"
             remote_host = "mmrecorder"
@@ -1086,12 +1090,21 @@ class ProcessingWindow(QWidget):
 
             # Call the populate_folder_lists function
             self.populate_folder_lists()
-        else:
-            subprocess.Popen(["gnome-terminal", "--", "check_crops"])
 
     def on_make_videos_button_clicked(self):
         # Launch the terminal and run the run_makevideos command
-        if sys.platform == "darwin":
+        if self.main_window.local:
+
+            subprocess.Popen(
+                [
+                    "gnome-terminal",
+                    "--",
+                    "/bin/bash",
+                    "/home/matthias/Tracking_Analysis/Tracktor/MakeVideos.sh",
+                ]
+            )
+
+        else:
             # Run the SSH command with nohup on macOS without opening a new Terminal window
             remote_user = "matthias"
             remote_host = "mmrecorder"
@@ -1115,30 +1128,25 @@ class ProcessingWindow(QWidget):
                 print(f"Error output: {result.stderr.decode()}")
 
             self.populate_folder_lists()
-        else:
-            subprocess.Popen(
-                [
-                    "gnome-terminal",
-                    "--",
-                    "/bin/bash",
-                    "/home/matthias/Tracking_Analysis/Tracktor/MakeVideos.sh",
-                ]
-            )
 
     def on_track_videos_button_clicked(self):
         # Launch the terminal and run the balltracker command
-        if sys.platform == "darwin":
+        if self.main_window.local:
+            subprocess.Popen(["gnome-terminal", "--", "balltracker"])
+
+        else:
             QMessageBox.information(
                 self,
                 "Information",
                 "This command is not yet implemented for remote execution and should be run from the workstation.",
             )
             return
-        else:
-            subprocess.Popen(["gnome-terminal", "--", "balltracker"])
 
     def on_check_tracks_button_clicked(self):
-        if sys.platform == "darwin":
+        if self.main_window.local:
+            subprocess.Popen(["gnome-terminal", "--", "check_tracks"])
+
+        else:
             # Run the SSH command with nohup on macOS without opening a new Terminal window
             remote_user = "matthias"
             remote_host = "mmrecorder"
@@ -1219,7 +1227,7 @@ class ProcessingWindow(QWidget):
                     self.data_path_folder_list.addItem(item)
 
         # Add the folders from the local path to the local path list widget
-        if sys.platform == "linux":
+        if self.main_window.local:
             local_path = Path("/home/matthias/Videos/")
             for folder in local_path.iterdir():
                 if folder.is_dir():
@@ -1233,7 +1241,7 @@ class ProcessingWindow(QWidget):
                         item.setForeground(QColor("gray"))
                     self.local_path_folder_list.addItem(item)
 
-        if sys.platform == "darwin":
+        else:
             # Set the remote hostname and username
             remote_host = "mmrecorder"
             remote_user = "matthias"
@@ -1295,94 +1303,106 @@ class ProcessingWindow(QWidget):
         experiment_window.open_data_folder(folder_path)
 
 
-class MainWindow(QMainWindow):
+class CustomTableWidget(QTableWidget):
     def __init__(self, *args, **kwargs):
-        super(MainWindow, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
-        """
-        Main window of the application.
-        
-        Attributes
-        ----------
-        tab_widget : QTabWidget
-            The tab widget containing the experiment and processing windows.
-        
-        Methods
-        ---------
-        closeEvent : override
-            Called when the window is closed. Handles 1) checking for unsaved changes in the experiment window, 2) closing the live stream, and 3) closing the application.
-        
-        """
+    def contextMenuEvent(self, event):
+        # Get the row and column that was clicked
+        row = self.rowAt(event.y())
+        col = self.columnAt(event.x())
 
-        self.setWindowTitle("Multimaze Recorder")
-        # Set the default size of the window
-        self.resize(800, 600)
+        # Create a context menu
+        menu = QMenu(self)
 
-        # Create a vertical layout for the central widget
-        layout = QVBoxLayout()
+        # Add an action to fill all arenas
+        fill_all_action = QAction("Fill Experiment", self)
+        fill_all_action.triggered.connect(
+            lambda checked, row=row: self.fill_experiment(row)
+        )
+        menu.addAction(fill_all_action)
 
-        # Create a tab widget
-        self.tab_widget = QTabWidget()
-        layout.addWidget(self.tab_widget)
+        # Add a separator
+        menu.addSeparator()
 
-        # Create the experiment window and add it as a tab
-        experiment_window = ExperimentWindow(self.tab_widget)
-        self.tab_widget.addTab(experiment_window, "Experiment")
+        # Add an action to fill the selected arena
+        fill_arena_action = QAction("Fill Arena", self)
+        fill_arena_action.triggered.connect(
+            lambda checked, col=col, row=row: self.fill_arena(col, row)
+        )
+        menu.addAction(fill_arena_action)
 
-        # Create the processing window and add it as a tab
-        processing_window = ProcessingWindow(self.tab_widget)
-        self.tab_widget.addTab(processing_window, "Processing")
+        # Show the context menu at the current mouse position
+        menu.exec(event.globalPos())
 
-        # Create a terminal emulator widget
-        # self.terminal = QTermWidget()
-        # layout.addWidget(self.terminal)
+    def fill_arena(self, col, row):
+        # Get the arena number from the column label
+        column_label = self.horizontalHeaderItem(col).text()
+        arena_number = int(column_label.split("_")[0][5:])
 
-        # Set the layout for the central widget
-        central_widget = QWidget()
-        central_widget.setLayout(layout)
-        self.setCentralWidget(central_widget)
+        # Prompt the user to enter a value
+        value, ok = QInputDialog.getText(self, f"Fill Arena {arena_number}", "Value:")
+        if not ok:
+            return
 
-        # Create a menu bar
-        menu_bar = self.menuBar()
+        # Find the columns for the given arena
+        for col in range(1, self.columnCount()):
+            column_label = self.horizontalHeaderItem(col).text()
+            if column_label.startswith(f"Arena{arena_number}_"):
+                # Set the value for the given row in the column
+                item = self.item(row, col)
+                if item:
+                    item.setText(value)
 
-        # Create a "File" menu
-        file_menu = menu_bar.addMenu("&File")
+    def fill_experiment(self, row):
+        # Prompt the user to enter a value
+        value, ok = QInputDialog.getText(self, "Fill Experiment", "Value:")
+        if not ok:
+            return
 
-        # Add options to the "File" menu
-        new_action = QAction("&New", self)
-        new_action.triggered.connect(experiment_window.create_data_folder)
-        file_menu.addAction(new_action)
+        # Set the value for all cells in the given row
+        for col in range(1, self.columnCount()):
+            item = self.item(row, col)
+            if item:
+                item.setText(value)
 
-        open_action = QAction("&Open", self)
-        open_action.triggered.connect(experiment_window.open_data_folder)
-        file_menu.addAction(open_action)
+    def add_empty_rows(self, row_count):
+        for _ in range(row_count):
+            row = self.rowCount()
+            self.insertRow(row)
+            # Add empty items to each cell of the new row
+            for col in range(self.columnCount()):
+                item = QTableWidgetItem("")
+                self.setItem(row, col, item)
 
-        save_action = QAction("&Save", self)
-        save_action.triggered.connect(experiment_window.save_data)
-        file_menu.addAction(save_action)
+    def set_cell_colors(self):
+        # Define a list of colors to use for each arena
+        colors = [
+            "#F7DC6F",
+            "#82E0AA",
+            "#85C1E9",
+            "#BB8FCE",
+            "#F1948A",
+            "#6C88C4",
+            "#D35400",
+            "#FFBD00",
+            "#1ABC9C",
+        ]
 
-        close_action = QAction("&Close", self)
-        close_action.triggered.connect(experiment_window.close_folder)
-        file_menu.addAction(close_action)
+        # Iterate over the cells of the table
+        for row in range(self.rowCount()):
+            for col in range(1, self.columnCount()):
+                # Get the arena number from the column label
+                column_label = self.horizontalHeaderItem(col).text()
+                arena_number = int(column_label.split("_")[0][5:])
 
-    def closeEvent(self, event):
-        # Check if there are unsaved changes in the experiment window
-        if experiment_window.has_unsaved_changes():
-            print("unsaved changes")
-            # Prompt the user to save data before closing
-            reply = QMessageBox.question(
-                self,
-                "Save Data",
-                "Would you like to save data before closing?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
-            )
+                # Get the color for this arena
+                color = colors[arena_number - 1]
 
-            if reply == QMessageBox.StandardButton.Yes:
-                # Save the data from the table
-                experiment_window.save_data()
-
-        event.accept()
+                # Set the background color of the cell
+                item = self.item(row, col)
+                if item:
+                    item.setBackground(QColor(color))
 
 
 app = QApplication(sys.argv)
