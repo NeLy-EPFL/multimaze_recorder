@@ -40,6 +40,22 @@ class MainWindow(QMainWindow):
             self.local = True
         else:
             self.local = False
+            
+        self.online = True
+            
+        # If the application is running remotely, try to connect to the experimental workstation through SSH
+        if not self.local:
+            try:
+                subprocess.run(["ssh", "mmrecorder", "echo", "Connected"])
+            except:
+                # Display an information message to the user that the application will run in offline mode
+                QMessageBox.information(
+                    self,
+                    "Information",
+                    "The application is running in offline mode. Some features may be disabled.",
+                )
+                
+                self.online = False
 
         self.setWindowTitle("Multimaze Recorder")
         # Set the default size of the window
@@ -346,7 +362,10 @@ class ExperimentWindow(QWidget):
                     col += 1
 
             # Check if the registry file exists and is not empty
-            registry_file = Path("variables_registry.json")
+            if self.current_experiment_type == "Ball pushing":
+                registry_file = Path("variables_registry_BallPushing.json")
+            elif self.current_experiment_type == "Standard":
+                registry_file = Path("variables_registry_Standard.json")
             if registry_file.exists() and registry_file.stat().st_size > 0:
                 # Read the list of known variables from the registry file
                 with open(registry_file, "r") as f:
@@ -370,7 +389,11 @@ class ExperimentWindow(QWidget):
 
         else:
             # Check if the registry file exists and is not empty
-            registry_file = Path("variables_registry.json")
+            if self.current_experiment_type == "Ball pushing":
+                registry_file = Path("variables_registry_BallPushing.json")
+            elif self.current_experiment_type == "Standard":
+                registry_file = Path("variables_registry_Standard.json")
+
             if registry_file.exists() and registry_file.stat().st_size > 0:
                 # Read the list of known variables from the registry file
                 with open(registry_file, "r") as f:
@@ -521,7 +544,7 @@ class ExperimentWindow(QWidget):
         self.record_button.setEnabled(False)
         self.duration_spinbox.setEnabled(False)
         self.fps_spinbox.setEnabled(False)
-        
+
         # TODO: Fix this not properly disabling, and also apply it to situation where images already exist
 
         print(f"Recording using {self.recording_script}")
@@ -627,15 +650,33 @@ class ExperimentWindow(QWidget):
 
     def on_experiment_type_changed(self, index):
         self.current_experiment_type = self.experiment_type_selector.itemText(index)
-        
+
         # If the experiment type is standard, set the table style to "arenas" and disable the table style selector
         if self.current_experiment_type == "Standard":
             self.table_style_selector.setCurrentIndex(0)
             self.table_style_selector.setDisabled(True)
-        
+
         # If the experiment type is ball pushing, enable the table style selector
         elif self.current_experiment_type == "Ball pushing":
             self.table_style_selector.setDisabled(False)
+
+        # Update Table
+        # Create a new table using the loaded metadata
+        table = self.create_table()
+
+        # Get the layout of the central widget
+        layout = self.layout()
+
+        # Remove the existing table from the layout (if any)
+        if self.table:
+            layout.removeWidget(self.table)
+            self.table.deleteLater()
+
+        # Add the new table to the layout
+        layout.addWidget(table)
+
+        # Store a reference to the new table in an attribute
+        self.table = table
 
     def create_data_folder(self, metadata=None):
         # Check if a folder is already open
@@ -646,7 +687,7 @@ class ExperimentWindow(QWidget):
             )
             if not ok:
                 return
-            
+
             # Prompt the user to choose an experiment type
             experiment_type, ok = QInputDialog.getItem(
                 self,
@@ -658,10 +699,10 @@ class ExperimentWindow(QWidget):
             )
             if not ok:
                 return
-            
+
             self.current_experiment_type = experiment_type
             index = self.experiment_type_selector.findText(experiment_type)
-            
+
             # If the experiment type is Standard, skip the table style selection and use the "arenas" layout
             if experiment_type == "Standard":
                 table_style = "arenas"
@@ -889,13 +930,13 @@ class ExperimentWindow(QWidget):
         full = True
         processed = True
         images = True
-        
+
         for i in range(1, 10):
             arena_path = folder_path / f"arena{i}"
-            local_arena_path = self.local_path/ folder_path.name/ f"arena{i}"
-            
+            local_arena_path = self.local_path / folder_path.name / f"arena{i}"
+
             if self.current_experiment_type == "Standard":
-                
+
                 if not any(arena_path.glob("*.mp4")):
                     full = False
                 if not any(local_arena_path.glob("*.jpg")):
@@ -905,7 +946,12 @@ class ExperimentWindow(QWidget):
             elif self.current_experiment_type == "Ball pushing":
                 for j in range(1, 7):
                     corridor_path = folder_path / f"arena{i}" / f"corridor{j}"
-                    local_corridor_path = self.local_path/ folder_path.name/ f"arena{i}" / f"corridor{j}"
+                    local_corridor_path = (
+                        self.local_path
+                        / folder_path.name
+                        / f"arena{i}"
+                        / f"corridor{j}"
+                    )
                     if not any(corridor_path.glob("*.mp4")):
                         full = False
                     if not any(local_corridor_path.glob("*.jpg")):
@@ -919,7 +965,6 @@ class ExperimentWindow(QWidget):
             self.fps_spinbox.setDisabled(True)
             self.record_button.setDisabled(True)
 
-
             # if there are duration and fps files, apply their value to the spinboxes
             if (folder_path / "duration.npy").exists():
                 self.duration_spinbox.setValue(np.load(folder_path / "duration.npy"))
@@ -931,7 +976,7 @@ class ExperimentWindow(QWidget):
         processed_label = QLabel(f"Processed: {'Yes' if processed else 'No'}")
         info_layout.addWidget(full_label)
         info_layout.addWidget(processed_label)
-        
+
         if images:
             # send a message to the user to inform that images are available for this experiment to be processed
             QMessageBox.information(
@@ -1002,7 +1047,11 @@ class ExperimentWindow(QWidget):
                 json.dump(metadata, f, indent=4)
 
         # Check if the registry file exists and is not empty
-        registry_file = Path("variables_registry.json")
+        if self.current_experiment_type == "Ball pushing":
+            registry_file = Path("variables_registry_BallPushing.json")
+        elif self.current_experiment_type == "Standard":
+            registry_file = Path("variables_registry_Standard.json")
+
         if registry_file.exists() and registry_file.stat().st_size > 0:
             # Read the list of known variables from the registry file
             with open(registry_file, "r") as f:
@@ -1020,8 +1069,13 @@ class ExperimentWindow(QWidget):
         # Save the updated registry
         if self.check_data_access() == False:
             return
-        with open("variables_registry.json", "w") as f:
-            json.dump(variables_registry, f, indent=4)
+
+        if self.current_experiment_type == "Ball pushing":
+            with open("variables_registry_BallPushing.json", "w") as f:
+                json.dump(variables_registry, f, indent=4)
+        elif self.current_experiment_type == "Standard":
+            with open("variables_registry_Standard.json", "w") as f:
+                json.dump(variables_registry, f, indent=4)
 
         # Open the new data folder
         self.open_data_folder(folder_path)
@@ -1121,7 +1175,7 @@ class ProcessingWindow(QWidget):
         if self.main_window.local:
             subprocess.Popen(["gnome-terminal", "--", "run_processimages"])
 
-        else:
+        elif self.main_window.online:
             # Run the SSH command with nohup on macOS without opening a new Terminal window
             remote_user = "matthias"
             remote_host = "mmrecorder"
@@ -1147,6 +1201,14 @@ class ProcessingWindow(QWidget):
             # Unavailable method
             # QMessageBox.information(self, "Information", "This command is not yet implemented for remote execution and should be run from the workstation.")
             # return
+            
+        else:
+            QMessageBox.information(
+                self,
+                "Information",
+                "Experimental workstation is not reachable. Command cannot be executed.",
+            )
+            return
 
         self.populate_folder_lists()
 
@@ -1261,8 +1323,13 @@ class ProcessingWindow(QWidget):
 
     def check_metadata(self, folder) -> bool:
         # Load the variables registry
-        with open("variables_registry.json", "r") as f:
-            variables_registry = json.load(f)
+
+        if self.experiment_window.current_experiment_type == "Standard":
+            with open("variables_registry_Standard.json", "r") as f:
+                variables_registry = json.load(f)
+        elif self.experiment_window.current_experiment_type == "Ball pushing":
+            with open("variables_registry_BallPushing.json", "r") as f:
+                variables_registry = json.load(f)
 
         # Load the metadata file
         metadata_path = Path(folder) / "metadata.json"
