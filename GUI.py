@@ -247,6 +247,11 @@ class ExperimentWindow(QWidget):
         self.table_style_selector.addItems(["arenas", "corridors"])
         self.table_style_selector.currentIndexChanged.connect(self.update_table_style)
 
+        self.metadata_selector = QComboBox()
+        self.metadata_selector.addItems(["Ball pushing", "Standard", "New"])
+        self.metadata_selector.currentIndexChanged.connect(self.select_metadata)
+        #TODO: find out why changing the metadata doesn't update the table.
+
         # Create layout
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Experiment type:"))
@@ -259,16 +264,24 @@ class ExperimentWindow(QWidget):
         layout.addWidget(self.folder_lineedit)
 
         # Create a horizontal box layout for the record button and the checkbox
-        hbox = QHBoxLayout()
-        hbox.addWidget(self.record_button)
-        hbox.addWidget(self.HardwareTrigger_checkbox)
+        hbox_record = QHBoxLayout()
+        hbox_record.addWidget(self.record_button)
+        hbox_record.addWidget(self.HardwareTrigger_checkbox)
 
         # Add the hbox layout to the main layout
-        layout.addLayout(hbox)
+        layout.addLayout(hbox_record)
 
+        # Create a horizontal box layout for the style and metadata selectors
+
+        hbox_style = QHBoxLayout()
         # layout.addWidget(self.stop_button)
-        layout.addWidget(QLabel("Table layout:"))
-        layout.addWidget(self.table_style_selector)
+        hbox_style.addWidget(QLabel("Table layout:"))
+        hbox_style.addWidget(self.table_style_selector)
+
+        hbox_style.addWidget(QLabel("Metadata:"))
+        hbox_style.addWidget(self.metadata_selector)
+
+        layout.addLayout(hbox_style)
 
         # Create an empty table
         self.table = self.create_table()
@@ -309,7 +322,7 @@ class ExperimentWindow(QWidget):
         else:
             self.HardwareTrigger_checkbox.setEnabled(False)
 
-    def create_table(self, metadata=None, table_style="arenas"):
+    def create_table(self, metadata=None, table_style="arenas", experiment_type=None):
         """
         Create a new table widget using the provided metadata
 
@@ -366,10 +379,30 @@ class ExperimentWindow(QWidget):
                     col += 1
 
             # Check if the registry file exists and is not empty
-            if self.current_experiment_type == "Ball pushing":
-                registry_file = Path("variables_registry_BallPushing.json")
-            elif self.current_experiment_type == "Standard":
-                registry_file = Path("variables_registry_Standard.json")
+
+            if not experiment_type:
+                if self.current_experiment_type == "Ball pushing":
+                    registry_file = Path(
+                        "Metadata_Registries/variables_registry_BallPushing.json"
+                    )
+                elif self.current_experiment_type == "Standard":
+                    registry_file = Path(
+                        "Metadata_Registries/variables_registry_Standard.json"
+                    )
+
+            else:
+                if experiment_type == "Ball pushing":
+                    registry_file = Path(
+                        "Metadata_Registries/variables_registry_BallPushing.json"
+                    )
+                elif experiment_type == "Standard":
+                    registry_file = Path(
+                        "Metadata_Registries/variables_registry_Standard.json"
+                    )
+                else:
+                    # don't load any pre-existing metadata
+                    registry_file = None
+
             if registry_file.exists() and registry_file.stat().st_size > 0:
                 # Read the list of known variables from the registry file
                 with open(registry_file, "r") as f:
@@ -394,9 +427,13 @@ class ExperimentWindow(QWidget):
         else:
             # Check if the registry file exists and is not empty
             if self.current_experiment_type == "Ball pushing":
-                registry_file = Path("variables_registry_BallPushing.json")
+                registry_file = Path(
+                    "Metadata_Registries/variables_registry_BallPushing.json"
+                )
             elif self.current_experiment_type == "Standard":
-                registry_file = Path("variables_registry_Standard.json")
+                registry_file = Path(
+                    "Metadata_Registries/variables_registry_Standard.json"
+                )
 
             if registry_file.exists() and registry_file.stat().st_size > 0:
                 # Read the list of known variables from the registry file
@@ -677,6 +714,26 @@ class ExperimentWindow(QWidget):
         layout = self.layout()
 
         # Remove the existing table from the layout (if any)
+        if self.table:
+            layout.removeWidget(self.table)
+            self.table.deleteLater()
+
+        # Add the new table to the layout
+        layout.addWidget(table)
+
+        # Store a reference to the new table in an attribute
+        self.table = table
+
+    def select_metadata(self, index):
+        # Get the selected metadata from the combo box
+        metadata = self.metadata_selector.itemText(index)
+
+        # Remove the existing table from the layout (if any)
+        layout = self.layout()
+
+        print(metadata)
+        table = self.create_table(experiment_type=metadata)
+
         if self.table:
             layout.removeWidget(self.table)
             self.table.deleteLater()
@@ -1057,9 +1114,11 @@ class ExperimentWindow(QWidget):
 
         # Check if the registry file exists and is not empty
         if self.current_experiment_type == "Ball pushing":
-            registry_file = Path("variables_registry_BallPushing.json")
+            registry_file = Path(
+                "Metadata_Registries/variables_registry_BallPushing.json"
+            )
         elif self.current_experiment_type == "Standard":
-            registry_file = Path("variables_registry_Standard.json")
+            registry_file = Path("Metadata_Registries/variables_registry_Standard.json")
 
         if registry_file.exists() and registry_file.stat().st_size > 0:
             # Read the list of known variables from the registry file
@@ -1080,10 +1139,12 @@ class ExperimentWindow(QWidget):
             return
 
         if self.current_experiment_type == "Ball pushing":
-            with open("variables_registry_BallPushing.json", "w") as f:
+            with open(
+                "Metadata_Registries/variables_registry_BallPushing.json", "w"
+            ) as f:
                 json.dump(variables_registry, f, indent=4)
         elif self.current_experiment_type == "Standard":
-            with open("variables_registry_Standard.json", "w") as f:
+            with open("Metadata_Registries/variables_registry_Standard.json", "w") as f:
                 json.dump(variables_registry, f, indent=4)
 
         # Open the new data folder
@@ -1334,10 +1395,12 @@ class ProcessingWindow(QWidget):
         # Load the variables registry
 
         if self.experiment_window.current_experiment_type == "Standard":
-            with open("variables_registry_Standard.json", "r") as f:
+            with open("Metadata_Registries/variables_registry_Standard.json", "r") as f:
                 variables_registry = json.load(f)
         elif self.experiment_window.current_experiment_type == "Ball pushing":
-            with open("variables_registry_BallPushing.json", "r") as f:
+            with open(
+                "Metadata_Registries/variables_registry_BallPushing.json", "r"
+            ) as f:
                 variables_registry = json.load(f)
 
         # Load the metadata file
