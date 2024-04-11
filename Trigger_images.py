@@ -22,7 +22,7 @@ gi.require_version("Tcam", "1.0")
 # Constants
 SERIAL_PORT = "/dev/ttyACM0"
 BAUD_RATE = 9600
-PRESETS_PATH = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
+# PRESETS_PATH = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
 LOCAL_PATH = "/home/matthias/Videos/"
 REMOTE_PATH = (
     "/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/"
@@ -116,7 +116,7 @@ def on_new_image(tis, userdata, folder, cropping):
 
 def main():
     # Parse command-line arguments
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 5:
         print(f"Usage: {sys.argv[0]} FOLDERNAME")
         sys.exit(1)
 
@@ -127,8 +127,10 @@ def main():
     folder = Path(LOCAL_PATH).joinpath(FolderName)
     folder.mkdir(parents=True, exist_ok=True)
 
+    camera_settings = sys.argv[4]
+
     # Extract cropping parameters
-    with open(PRESETS_PATH) as jsonFile:
+    with open(camera_settings) as jsonFile:
         cameraconfigs = json.load(jsonFile)
     cropping = cameraconfigs["cropping"]
 
@@ -136,7 +138,7 @@ def main():
     CD = CustomData(None)
 
     # Configure the camera
-    camera = configure_camera(PRESETS_PATH, hardware_trigger=True)
+    camera = configure_camera(camera_settings, hardware_trigger=True)
 
     # Set the callback function
     camera.set_image_callback(on_new_image, CD, folder, cropping)

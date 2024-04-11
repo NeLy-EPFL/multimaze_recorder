@@ -40,9 +40,9 @@ class MainWindow(QMainWindow):
             self.local = True
         else:
             self.local = False
-            
+
         self.online = True
-            
+
         # If the application is running remotely, try to connect to the experimental workstation through SSH
         if not self.local:
             try:
@@ -54,7 +54,7 @@ class MainWindow(QMainWindow):
                     "Information",
                     "The application is running in offline mode. Some features may be disabled.",
                 )
-                
+
                 self.online = False
 
         self.setWindowTitle("Multimaze Recorder")
@@ -224,6 +224,10 @@ class ExperimentWindow(QWidget):
             self.on_experiment_type_changed
         )
         self.current_experiment_type = "Ball pushing"
+
+        self.camera_settings = (
+            "/home/matthias/multimaze_recorder/Presets/ballpushing_set.json"
+        )
 
         self.folder_lineedit = QLineEdit()
 
@@ -524,6 +528,7 @@ class ExperimentWindow(QWidget):
         duration = self.duration_spinbox.value()
         fps = self.fps_spinbox.value()
         folder = self.folder_lineedit.text()
+        camera_settings = self.camera_settings
 
         # Check if a folder is open
         if self.folder_open == False:
@@ -553,7 +558,7 @@ class ExperimentWindow(QWidget):
         if self.main_window.local:
             self.recording_thread = threading.Thread(
                 target=self.record_images,
-                args=(self.recording_script, folder, fps, duration),
+                args=(self.recording_script, folder, fps, duration, camera_settings),
             )
             self.recording_thread.start()
 
@@ -565,15 +570,9 @@ class ExperimentWindow(QWidget):
             )
             return
 
-    def record_images(self, script, folder, fps, duration):
+    def record_images(self, script, folder, fps, duration, camera_settings):
         subprocess.run(
-            [
-                "python",
-                script,
-                folder,
-                str(fps),
-                str(duration),
-            ]
+            ["python", script, folder, str(fps), str(duration), str(camera_settings)]
         )
 
         # Restart the live stream after recording is finished
@@ -655,10 +654,20 @@ class ExperimentWindow(QWidget):
         if self.current_experiment_type == "Standard":
             self.table_style_selector.setCurrentIndex(0)
             self.table_style_selector.setDisabled(True)
+            self.camera_settings = (
+                "/home/matthias/multimaze_recorder/Presets/standard_set.json"
+            )
+
+            print(self.camera_settings)
 
         # If the experiment type is ball pushing, enable the table style selector
         elif self.current_experiment_type == "Ball pushing":
             self.table_style_selector.setDisabled(False)
+            self.camera_settings = (
+                "/home/matthias/multimaze_recorder/Presets/ballpushing_set.json"
+            )
+
+            print(self.camera_settings)
 
         # Update Table
         # Create a new table using the loaded metadata
@@ -1201,7 +1210,7 @@ class ProcessingWindow(QWidget):
             # Unavailable method
             # QMessageBox.information(self, "Information", "This command is not yet implemented for remote execution and should be run from the workstation.")
             # return
-            
+
         else:
             QMessageBox.information(
                 self,

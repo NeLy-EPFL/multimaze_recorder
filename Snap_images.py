@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from Utilities import *
 
+
 class Recorder:
     def __init__(self, presets):
         """Initialize the Recorder with the given presets."""
@@ -20,13 +21,13 @@ class Recorder:
         self.dot_state = False
         self.last_toggle_time = time.perf_counter()
         self.executor = ThreadPoolExecutor(max_workers=5)
-        
+
     def load_camera_configs(self):
         """Load camera configurations from a JSON file."""
         with open(self.presets) as jsonFile:
             camera_configs = json.load(jsonFile)
         return camera_configs
-    
+
     def save_image(self, image, filename):
         """Save the given image to the specified filename."""
         image.save(filename)
@@ -34,7 +35,7 @@ class Recorder:
     def record(self, folder_name, fps, duration):
         """
         Record video frames and save them as images.
-        
+
         Parameters:
         folder_name (str): The name of the folder where the images will be saved.
         fps (int): The number of frames per second to capture.
@@ -44,7 +45,7 @@ class Recorder:
         folder.mkdir(parents=True, exist_ok=True)
         count = 0
         timeout = 1 / fps
-        
+
         time.sleep(2)
 
         with tqdm(total=duration, desc="Progress", bar_format="{l_bar}{bar}") as pbar:
@@ -62,27 +63,30 @@ class Recorder:
                     image = image.crop((self.left, self.top, self.right, self.bottom))
                     future = self.executor.submit(self.save_image, image, filename)
 
-                    thumbnail, self.dot_state, self.last_toggle_time = create_thumbnail(frame, self.dot_state, self.last_toggle_time)
+                    thumbnail, self.dot_state, self.last_toggle_time = create_thumbnail(
+                        frame, self.dot_state, self.last_toggle_time
+                    )
                     cv2.imshow("Maze Recorder", thumbnail)
                     cv2.waitKey(1)
 
                     count += 1
-                    
+
         recorder.executor.shutdown(wait=True)
-        
+
         print(f"Captured {count} frames in {time.perf_counter() - start:0.4f} seconds")
         folder.rename(folder.parent.joinpath(folder.name + "_Recorded"))
         print("Program ends")
 
+
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 5:
         print(f"Usage: {sys.argv[0]} FOLDERNAME FPS DURATION")
         sys.exit(1)
 
     folder_name = sys.argv[1]
     fps = int(sys.argv[2])
     duration = int(sys.argv[3])
-    presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
+    presets = sys.argv[4]
 
     recorder = Recorder(presets)
     recorder.record(folder_name, fps, duration)
