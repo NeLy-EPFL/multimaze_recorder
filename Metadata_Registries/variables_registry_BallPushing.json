@@ -5,5 +5,8 @@
     "FeedingState",
     "Orientation",
     "Light",
-    "Crossing"
+    "Crossing",
+    "BallType",
+    "Used_to ",
+    "Magnet"
 ]
