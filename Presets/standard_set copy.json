@@ -49,9 +49,9 @@
 
     ],
     "cropping": {
-        "Left": 200,
+        "Left": 250,
         "Top": 0,
-        "Right": 3900,
+        "Right": 3850,
         "Bottom": 3000
     }
 }

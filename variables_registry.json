@@ -5,5 +5,13 @@
     "FeedingState",
     "Orientation",
     "Light",
-    "Crossing"
+    "Crossing",
+    "BallType",
+    "Used_to ",
+    "Used to",
+    "notes",
+    "UsedTo",
+    "Blocked",
+    "Magnet",
+    "Bottleneck"
 ]
