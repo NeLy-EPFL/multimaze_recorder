@@ -456,35 +456,6 @@ class ExperimentWindow(QWidget):
                     # Create a new list to store the known variables
                     variables_registry = []
 
-                # TODO: Clean this up
-
-                # # Check if the registry file exists and is not empty
-                # if self.current_experiment_type == "Ball pushing":
-                #     registry_file = Path(
-                #         "Metadata_Registries/variables_registry_BallPushing.json"
-                #     )
-                # elif self.current_experiment_type == "Standard":
-                #     registry_file = Path(
-                #         "Metadata_Registries/variables_registry_Standard.json"
-                #     )
-
-                # if (
-                #     registry_file
-                #     and registry_file.exists()
-                #     and registry_file.stat().st_size > 0
-                # ):
-                #     # Read the list of known variables from the registry file
-                #     with open(registry_file, "r") as f:
-                #         variables_registry = json.load(f)
-                # else:
-                #     # Create a new list to store the known variables
-                #     variables_registry = []
-
-                # # Fill the "Variable" column with the values from the registry
-                # for row, value in enumerate(variables_registry):
-                #     value_item = QTableWidgetItem(value)
-                #     table.setItem(row, 0, value_item)
-
             print(
                 f"Creating table with {self.current_experiment_type} type and {table_style} style. Using registry {selected_registry}."
             )
@@ -766,25 +737,46 @@ class ExperimentWindow(QWidget):
 
     def select_metadata(self, index):
         # Get the selected metadata from the combo box
-        metadata = self.metadata_selector.currentText()
+        registry = self.metadata_selector.currentText()
 
-        self.current_experiment_type = metadata
+        if registry == "New Metadata":
+            # Prompt the user to enter a new metadata name
+            metadata_name, ok = QInputDialog.getText(
+                self, "New Metadata", "Enter new metadata name:"
+            )
+            if not ok:
+                return
 
-        # Remove the existing table from the layout (if any)
-        layout = self.layout()
+            # Create a new .json registry file with the specified name
+            with open(f"Metadata_Registries/{metadata_name}.json", "w") as f:
+                json.dump([], f)
 
-        print(metadata)
-        table = self.create_table(experiment_type=metadata)
+            # Add the new metadata to the combo box
+            self.metadata_selector.addItem(metadata_name)
+            # Set the current combo box value to the new metadata
+            self.metadata_selector.setCurrentIndex(
+                self.metadata_selector.findText(metadata_name)
+            )
 
-        if self.table:
-            layout.removeWidget(self.table)
-            self.table.deleteLater()
+        else:
 
-        # Add the new table to the layout
-        layout.addWidget(table)
+            self.current_experiment_type = registry
 
-        # Store a reference to the new table in an attribute
-        self.table = table
+            # Remove the existing table from the layout (if any)
+            layout = self.layout()
+
+            print(registry)
+            table = self.create_table(experiment_type=registry)
+
+            if self.table:
+                layout.removeWidget(self.table)
+                self.table.deleteLater()
+
+            # Add the new table to the layout
+            layout.addWidget(table)
+
+            # Store a reference to the new table in an attribute
+            self.table = table
 
     def create_data_folder(self, metadata=None):
         # Check if a folder is already open
