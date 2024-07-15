@@ -247,8 +247,15 @@ class ExperimentWindow(QWidget):
         self.table_style_selector.addItems(["arenas", "corridors"])
         self.table_style_selector.currentIndexChanged.connect(self.update_table_style)
 
+        # Load existing metadata registries
+        metadata_folder = Path("Metadata_Registries")
+        metadata_list = [f.stem for f in metadata_folder.glob("*.json")]
+
         self.metadata_selector = QComboBox()
-        self.metadata_selector.addItems(["Ball pushing", "Standard", "New"])
+        # Add the available metadata registries to the combo box
+        self.metadata_selector.addItems(metadata_list)
+        # Add a default option for creating new metadata
+        self.metadata_selector.addItem("New Metadata")
         self.metadata_selector.currentIndexChanged.connect(self.select_metadata)
         # TODO: find out why changing the metadata doesn't update the table.
 
@@ -284,7 +291,7 @@ class ExperimentWindow(QWidget):
         layout.addLayout(hbox_style)
 
         # Create an empty table
-        self.table = self.create_table()
+        self.table = self.create_table(init=True)
 
         # Add the table to the layout
         layout.addWidget(self.table)
@@ -305,14 +312,10 @@ class ExperimentWindow(QWidget):
 
         # Mac Datapath
         if platform.system() == "Darwin":
-            self.DataPath = Path(
-                "/Volumes/upramdya/files/MD/MultiMazeRecorder/Videos"
-            )
+            self.DataPath = Path("/Volumes/upramdya/files/MD/MultiMazeRecorder/Videos")
         # Linux Datapath
         if platform.system() == "Linux":
-            self.DataPath = Path(
-                "/mnt/upramdya_data/MD/MultiMazeRecorder/Videos"
-            )
+            self.DataPath = Path("/mnt/upramdya_data/MD/MultiMazeRecorder/Videos")
             self.local_path = Path("/home/matthias/Videos/")
 
         # Check if Arduino is available and enable hardware triggering if so
@@ -322,7 +325,9 @@ class ExperimentWindow(QWidget):
         else:
             self.HardwareTrigger_checkbox.setEnabled(False)
 
-    def create_table(self, metadata=None, table_style="arenas", experiment_type=None):
+    def create_table(
+        self, metadata=None, table_style="arenas", experiment_type=None, init=False
+    ):
         """
         Create a new table widget using the provided metadata
 
@@ -362,103 +367,127 @@ class ExperimentWindow(QWidget):
                 item = QTableWidgetItem("")
                 table.setItem(row, col, item)
 
-        # Check if metadata was provided
-        if metadata:
-            # Fill the "Variable" column with the values from the "Variable" key in the metadata
-            for row, value in enumerate(metadata["Variable"]):
-                value_item = QTableWidgetItem(value)
-                table.setItem(row, 0, value_item)
+        if not init:
 
-            # Fill the other columns with the values from the other keys in the metadata
-            col = 1
-            for variable, values in metadata.items():
-                if variable != "Variable":
-                    for row, value in enumerate(values):
-                        value_item = QTableWidgetItem(value)
-                        table.setItem(row, col, value_item)
-                    col += 1
-
-            # Check if the registry file exists and is not empty
-
-            if not experiment_type:
-                if self.current_experiment_type == "Ball pushing":
-                    registry_file = Path(
-                        "Metadata_Registries/variables_registry_BallPushing.json"
-                    )
-                elif self.current_experiment_type == "Standard":
-                    registry_file = Path(
-                        "Metadata_Registries/variables_registry_Standard.json"
-                    )
-
-            else:
-                if experiment_type == "Ball pushing":
-                    registry_file = Path(
-                        "Metadata_Registries/variables_registry_BallPushing.json"
-                    )
-                elif experiment_type == "Standard":
-                    registry_file = Path(
-                        "Metadata_Registries/variables_registry_Standard.json"
-                    )
-                else:
-                    # don't load any pre-existing metadata
-                    registry_file = None
-
-            if (
-                registry_file
-                and registry_file.exists()
-                and registry_file.stat().st_size > 0
-            ):
-                # Read the list of known variables from the registry file
-                with open(registry_file, "r") as f:
-                    variables_registry = json.load(f)
-            else:
-                # Create a new list to store the known variables
-                variables_registry = []
-
-            # Check if any known variables are missing from the table and add them if necessary
-            row = len(metadata["Variable"])
-            for variable in variables_registry:
-                if variable not in metadata["Variable"]:
-                    table.insertRow(row)
-                    value_item = QTableWidgetItem(variable)
+            # Check if metadata was provided
+            if metadata:
+                # Fill the "Variable" column with the values from the "Variable" key in the metadata
+                for row, value in enumerate(metadata["Variable"]):
+                    value_item = QTableWidgetItem(value)
                     table.setItem(row, 0, value_item)
-                    # Set the values of the other columns for this row
-                    for col in range(1, table.columnCount()):
-                        value_item = QTableWidgetItem("")
-                        table.setItem(row, col, value_item)
-                    row += 1
 
-        else:
-            # Check if the registry file exists and is not empty
-            if self.current_experiment_type == "Ball pushing":
-                registry_file = Path(
-                    "Metadata_Registries/variables_registry_BallPushing.json"
-                )
-            elif self.current_experiment_type == "Standard":
-                registry_file = Path(
-                    "Metadata_Registries/variables_registry_Standard.json"
-                )
+                # Fill the other columns with the values from the other keys in the metadata
+                col = 1
+                for variable, values in metadata.items():
+                    if variable != "Variable":
+                        for row, value in enumerate(values):
+                            value_item = QTableWidgetItem(value)
+                            table.setItem(row, col, value_item)
+                        col += 1
 
-            if (
-                registry_file
-                and registry_file.exists()
-                and registry_file.stat().st_size > 0
-            ):
-                # Read the list of known variables from the registry file
-                with open(registry_file, "r") as f:
-                    variables_registry = json.load(f)
+                # Check if the registry file exists and is not empty
+
+                if not experiment_type:
+                    if self.current_experiment_type == "Ball pushing":
+                        registry_file = Path(
+                            "Metadata_Registries/variables_registry_BallPushing.json"
+                        )
+                    elif self.current_experiment_type == "Standard":
+                        registry_file = Path(
+                            "Metadata_Registries/variables_registry_Standard.json"
+                        )
+
+                else:
+                    if experiment_type == "Ball pushing":
+                        registry_file = Path(
+                            "Metadata_Registries/variables_registry_BallPushing.json"
+                        )
+                    elif experiment_type == "Standard":
+                        registry_file = Path(
+                            "Metadata_Registries/variables_registry_Standard.json"
+                        )
+                    else:
+                        # don't load any pre-existing metadata
+                        registry_file = None
+
+                if (
+                    registry_file
+                    and registry_file.exists()
+                    and registry_file.stat().st_size > 0
+                ):
+                    # Read the list of known variables from the registry file
+                    with open(registry_file, "r") as f:
+                        variables_registry = json.load(f)
+                else:
+                    # Create a new list to store the known variables
+                    variables_registry = []
+
+                # Check if any known variables are missing from the table and add them if necessary
+                row = len(metadata["Variable"])
+                for variable in variables_registry:
+                    if variable not in metadata["Variable"]:
+                        table.insertRow(row)
+                        value_item = QTableWidgetItem(variable)
+                        table.setItem(row, 0, value_item)
+                        # Set the values of the other columns for this row
+                        for col in range(1, table.columnCount()):
+                            value_item = QTableWidgetItem("")
+                            table.setItem(row, col, value_item)
+                        row += 1
+
             else:
-                # Create a new list to store the known variables
-                variables_registry = []
+                # Get the metadata from the selected registry file
+                selected_registry = self.metadata_selector.currentText()
 
-            # Fill the "Variable" column with the values from the registry
-            for row, value in enumerate(variables_registry):
-                value_item = QTableWidgetItem(value)
-                table.setItem(row, 0, value_item)
+                if selected_registry != "New Metadata":
+                    with open(
+                        f"Metadata_Registries/{selected_registry}.json",
+                        "r",
+                    ) as f:
+                        registry = json.load(f)
 
-        print(
-            f"Creating table with {self.current_experiment_type} type and {table_style} style"
-        )
+                    # Fill the "Variable" column with the values from the registry
+
+                    for row, value in enumerate(registry):
+                        value_item = QTableWidgetItem(value)
+                        table.setItem(row, 0, value_item)
+
+                else:
+                    # Create a new list to store the known variables
+                    variables_registry = []
+
+                # TODO: Clean this up
+
+                # # Check if the registry file exists and is not empty
+                # if self.current_experiment_type == "Ball pushing":
+                #     registry_file = Path(
+                #         "Metadata_Registries/variables_registry_BallPushing.json"
+                #     )
+                # elif self.current_experiment_type == "Standard":
+                #     registry_file = Path(
+                #         "Metadata_Registries/variables_registry_Standard.json"
+                #     )
+
+                # if (
+                #     registry_file
+                #     and registry_file.exists()
+                #     and registry_file.stat().st_size > 0
+                # ):
+                #     # Read the list of known variables from the registry file
+                #     with open(registry_file, "r") as f:
+                #         variables_registry = json.load(f)
+                # else:
+                #     # Create a new list to store the known variables
+                #     variables_registry = []
+
+                # # Fill the "Variable" column with the values from the registry
+                # for row, value in enumerate(variables_registry):
+                #     value_item = QTableWidgetItem(value)
+                #     table.setItem(row, 0, value_item)
+
+            print(
+                f"Creating table with {self.current_experiment_type} type and {table_style} style. Using registry {selected_registry}."
+            )
         # Resize the rows and columns to fit their contents
         table.resizeRowsToContents()
         table.resizeColumnsToContents()
