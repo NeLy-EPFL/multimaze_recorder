@@ -307,11 +307,17 @@ class ExperimentWindow(QWidget):
         if platform.system() == "Darwin":
             self.DataPath = Path(
                 "/Volumes/Ramdya-Lab/files/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos"
+=======
+                "/Volumes/upramdya_data/MD/MultiMazeRecorder/Videos"
+>>>>>>> 9a2b81fb8d454590eab501451eae4402c7cc6b34
             )
         # Linux Datapath
         if platform.system() == "Linux":
             self.DataPath = Path(
                 "/mnt/labserver/files/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/"
+=======
+                "/mnt/upramdya_data/MD/MultiMazeRecorder/Videos"
+>>>>>>> 9a2b81fb8d454590eab501451eae4402c7cc6b34
             )
             self.local_path = Path("/home/matthias/Videos/")
 

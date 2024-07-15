@@ -1,0 +1,12 @@
+[
+    "Date",
+    "Arena",
+    "Sockets",
+    "Closed_Floor",
+    "Training",
+    "DoubleTraining",
+    "Genotype",
+    "FeedingState",
+    "Period",
+    "Reward"
+]
