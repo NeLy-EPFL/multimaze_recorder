@@ -11,7 +11,7 @@ This script is used to capture images using Arduino hardware triggering. This is
 
 ## GUI
 
-### About the metada registry
+### About the metadata registry
 
 You might notice that known variables are always present in the table. They can be removed before saving and won't show in the final metadata.json file. It's a wanted feature of the GUI. The reason all the know variables are always displayed is twofolds: 
 

@@ -250,7 +250,7 @@ class ExperimentWindow(QWidget):
         self.metadata_selector = QComboBox()
         self.metadata_selector.addItems(["Ball pushing", "Standard", "New"])
         self.metadata_selector.currentIndexChanged.connect(self.select_metadata)
-        #TODO: find out why changing the metadata doesn't update the table.
+        # TODO: find out why changing the metadata doesn't update the table.
 
         # Create layout
         layout = QVBoxLayout()
@@ -306,12 +306,12 @@ class ExperimentWindow(QWidget):
         # Mac Datapath
         if platform.system() == "Darwin":
             self.DataPath = Path(
-                "/Volumes/Ramdya-Lab/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos"
+                "/Volumes/Ramdya-Lab/files/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos"
             )
         # Linux Datapath
         if platform.system() == "Linux":
             self.DataPath = Path(
-                "/mnt/labserver/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/"
+                "/mnt/labserver/files/DURRIEU_Matthias/Experimental_data/MultiMazeRecorder/Videos/"
             )
             self.local_path = Path("/home/matthias/Videos/")
 
@@ -403,7 +403,11 @@ class ExperimentWindow(QWidget):
                     # don't load any pre-existing metadata
                     registry_file = None
 
-            if registry_file.exists() and registry_file.stat().st_size > 0:
+            if (
+                registry_file
+                and registry_file.exists()
+                and registry_file.stat().st_size > 0
+            ):
                 # Read the list of known variables from the registry file
                 with open(registry_file, "r") as f:
                     variables_registry = json.load(f)
@@ -435,7 +439,11 @@ class ExperimentWindow(QWidget):
                     "Metadata_Registries/variables_registry_Standard.json"
                 )
 
-            if registry_file.exists() and registry_file.stat().st_size > 0:
+            if (
+                registry_file
+                and registry_file.exists()
+                and registry_file.stat().st_size > 0
+            ):
                 # Read the list of known variables from the registry file
                 with open(registry_file, "r") as f:
                     variables_registry = json.load(f)
@@ -448,6 +456,9 @@ class ExperimentWindow(QWidget):
                 value_item = QTableWidgetItem(value)
                 table.setItem(row, 0, value_item)
 
+        print(
+            f"Creating table with {self.current_experiment_type} type and {table_style} style"
+        )
         # Resize the rows and columns to fit their contents
         table.resizeRowsToContents()
         table.resizeColumnsToContents()
@@ -708,7 +719,7 @@ class ExperimentWindow(QWidget):
 
         # Update Table
         # Create a new table using the loaded metadata
-        table = self.create_table()
+        table = self.create_table(experiment_type=self.current_experiment_type)
 
         # Get the layout of the central widget
         layout = self.layout()
@@ -726,7 +737,9 @@ class ExperimentWindow(QWidget):
 
     def select_metadata(self, index):
         # Get the selected metadata from the combo box
-        metadata = self.metadata_selector.itemText(index)
+        metadata = self.metadata_selector.currentText()
+
+        self.current_experiment_type = metadata
 
         # Remove the existing table from the layout (if any)
         layout = self.layout()
@@ -1120,7 +1133,11 @@ class ExperimentWindow(QWidget):
         elif self.current_experiment_type == "Standard":
             registry_file = Path("Metadata_Registries/variables_registry_Standard.json")
 
-        if registry_file.exists() and registry_file.stat().st_size > 0:
+        if (
+            registry_file
+            and registry_file.exists()
+            and registry_file.stat().st_size > 0
+        ):
             # Read the list of known variables from the registry file
             with open(registry_file, "r") as f:
                 variables_registry = json.load(f)
