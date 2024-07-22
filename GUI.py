@@ -219,11 +219,14 @@ class ExperimentWindow(QWidget):
         self.fps_label = QLabel()
 
         self.experiment_type_selector = QComboBox()
-        self.experiment_type_selector.addItems(["Ball pushing", "Standard"])
+        self.data_folder = Path("/mnt/upramdya_data/MD/")
+        experiments_list = [d.name for d in self.data_folder.iterdir() if d.is_dir()]
+        self.experiment_type_selector.addItems(experiments_list)
+        self.experiment_type_selector.addItem("New Experiment")
+        # self.experiment_type_selector.addItems(["Ball pushing", "Standard"])
         self.experiment_type_selector.currentIndexChanged.connect(
             self.on_experiment_type_changed
         )
-        self.current_experiment_type = "Ball pushing"
 
         self.camera_settings = (
             "/home/matthias/multimaze_recorder/Presets/ballpushing_set.json"
@@ -388,7 +391,7 @@ class ExperimentWindow(QWidget):
                 # Check if the registry file exists and is not empty
 
                 if not experiment_type:
-                    if self.current_experiment_type == "Ball pushing":
+                    if self.current_experiment_type == "BallPushing":
                         registry_file = Path(
                             "Metadata_Registries/variables_registry_BallPushing.json"
                         )
@@ -398,7 +401,7 @@ class ExperimentWindow(QWidget):
                         )
 
                 else:
-                    if experiment_type == "Ball pushing":
+                    if experiment_type == "BallPushing":
                         registry_file = Path(
                             "Metadata_Registries/variables_registry_BallPushing.json"
                         )
@@ -698,21 +701,21 @@ class ExperimentWindow(QWidget):
     def on_experiment_type_changed(self, index):
         self.current_experiment_type = self.experiment_type_selector.itemText(index)
 
-        # If the experiment type is standard, set the table style to "arenas" and disable the table style selector
-        if self.current_experiment_type == "Standard":
-            self.table_style_selector.setCurrentIndex(0)
-            self.table_style_selector.setDisabled(True)
+        # If the experiment type is ball pushing, enable the table style selector
+        if self.current_experiment_type == "BallPushing":
+            self.table_style_selector.setDisabled(False)
             self.camera_settings = (
-                "/home/matthias/multimaze_recorder/Presets/standard_set.json"
+                "/home/matthias/multimaze_recorder/Presets/ballpushing_set.json"
             )
 
             print(self.camera_settings)
 
-        # If the experiment type is ball pushing, enable the table style selector
-        elif self.current_experiment_type == "Ball pushing":
-            self.table_style_selector.setDisabled(False)
+        # If the experiment type is not BallPushing, set the table style to "arenas" and disable the table style selector
+        elif self.current_experiment_type != "BallPushing":
+            self.table_style_selector.setCurrentIndex(0)
+            self.table_style_selector.setDisabled(True)
             self.camera_settings = (
-                "/home/matthias/multimaze_recorder/Presets/ballpushing_set.json"
+                "/home/matthias/multimaze_recorder/Presets/standard_set.json"
             )
 
             print(self.camera_settings)
@@ -793,7 +796,7 @@ class ExperimentWindow(QWidget):
                 self,
                 "Choose Experiment Type",
                 "Choose an experiment type for the new data folder:",
-                ["Ball pushing", "Standard"],
+                ["BallPushing", "Standard"],
                 0,
                 False,
             )
@@ -806,7 +809,7 @@ class ExperimentWindow(QWidget):
             # If the experiment type is Standard, skip the table style selection and use the "arenas" layout
             if experiment_type == "Standard":
                 table_style = "arenas"
-            elif experiment_type == "Ball pushing":
+            elif experiment_type == "BallPushing":
 
                 # Prompt the user to choose a table style
                 table_style, ok = QInputDialog.getItem(
@@ -872,7 +875,7 @@ class ExperimentWindow(QWidget):
                 arena_path = folder_path / f"arena{i}"
                 arena_path.mkdir(parents=True, exist_ok=True)
 
-                if self.current_experiment_type == "Ball pushing":
+                if self.current_experiment_type == "BallPushing":
                     # Create subdirectories for each corridor
                     for j in range(1, 7):
                         corridor_path = arena_path / f"corridor{j}"
@@ -920,7 +923,7 @@ class ExperimentWindow(QWidget):
                 valid_structure = False
                 break
 
-            if self.current_experiment_type == "Ball pushing":
+            if self.current_experiment_type == "BallPushing":
                 for j in range(1, 7):
                     corridor_path = arena_path / f"corridor{j}"
                     if not corridor_path.is_dir():
@@ -1043,7 +1046,7 @@ class ExperimentWindow(QWidget):
                     images = False
                 if not any(arena_path.glob("*.h5")):
                     processed = False
-            elif self.current_experiment_type == "Ball pushing":
+            elif self.current_experiment_type == "BallPushing":
                 for j in range(1, 7):
                     corridor_path = folder_path / f"arena{i}" / f"corridor{j}"
                     local_corridor_path = (
@@ -1147,7 +1150,7 @@ class ExperimentWindow(QWidget):
                 json.dump(metadata, f, indent=4)
 
         # Check if the registry file exists and is not empty
-        if self.current_experiment_type == "Ball pushing":
+        if self.current_experiment_type == "BallPushing":
             registry_file = Path(
                 "Metadata_Registries/variables_registry_BallPushing.json"
             )
@@ -1176,7 +1179,7 @@ class ExperimentWindow(QWidget):
         if self.check_data_access() == False:
             return
 
-        if self.current_experiment_type == "Ball pushing":
+        if self.current_experiment_type == "BallPushing":
             with open(
                 "Metadata_Registries/variables_registry_BallPushing.json", "w"
             ) as f:
@@ -1435,7 +1438,7 @@ class ProcessingWindow(QWidget):
         if self.experiment_window.current_experiment_type == "Standard":
             with open("Metadata_Registries/variables_registry_Standard.json", "r") as f:
                 variables_registry = json.load(f)
-        elif self.experiment_window.current_experiment_type == "Ball pushing":
+        elif self.experiment_window.current_experiment_type == "BallPushing":
             with open(
                 "Metadata_Registries/variables_registry_BallPushing.json", "r"
             ) as f:
