@@ -23,6 +23,7 @@ class ExperimentWindowSignals(QObject):
     """This class defines the signals for the ExperimentWindow class.
     It is used to define the signals that are emitted by the ExperimentWindow class to other windows of the GUI.
     """
+
     experimentPathChanged = pyqtSignal(Path)
 
 
@@ -130,7 +131,7 @@ class ExperimentWindow(QWidget):
         self.set_experiment_path(0)
 
         # Emit the signal with the initial experiment path
-        self.signals.experimentPathChanged.emit(self.experiment_path)
+        # self.signals.experimentPathChanged.emit(self.experiment_path)
 
         # Initialise the experiment type to the first item in the combo box with associated experiment path
         # self.current_experiment_type = self.experiment_type_selector.itemText(0)
@@ -681,6 +682,8 @@ class ExperimentWindow(QWidget):
 
         if self.experiment_type_selector.currentText() == "New Experiment":
             self.create_new_experiment()
+
+        self.set_experiment_path(index)
 
         # Update Table
         # Create a new table using the loaded metadata
