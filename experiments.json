@@ -1,0 +1,14 @@
+[
+    {
+        "name": "Ball pushing",
+        "path": "MultiMazeRecorder/Videos"
+    },
+    {
+        "name": "Optobot",
+        "path": "/mnt/upramdya_data/MD/Optogenetics/Optobot"
+    },
+    {
+        "name": "Irene experiments",
+        "path": "/mnt/upramdya_data/MD/Irene_Optobot"
+    }
+]

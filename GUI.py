@@ -76,6 +76,8 @@ class MainWindow(QMainWindow):
         processing_window = ProcessingWindow(self.tab_widget, self)
         self.tab_widget.addTab(processing_window, "Processing")
 
+        experiment_window.setup_processing_window()
+
         # Create a terminal emulator widget
         # self.terminal = QTermWidget()
         # layout.addWidget(self.terminal)
@@ -126,6 +128,27 @@ class MainWindow(QMainWindow):
                 experiment_window.save_data()
 
         event.accept()
+
+
+class ExperimentSettings:
+    def __init__(self):
+        self.experiments = self.load_experiments()
+
+    def load_experiments(self):
+        # Load experiments from a file or return a default list
+        try:
+            with open("experiments.json", "r") as file:
+                return json.load(file)
+        except FileNotFoundError:
+            return []
+
+    def save_experiments(self):
+        with open("experiments.json", "w") as file:
+            json.dump(self.experiments, file)
+
+    def add_experiment(self, name, path):
+        self.experiments.append({"name": name, "path": str(path)})
+        self.save_experiments()
 
 
 class ExperimentWindow(QWidget):
@@ -205,8 +228,12 @@ class ExperimentWindow(QWidget):
         
         """
 
+        self.data_folder = Path("/mnt/upramdya_data/MD/")
+        # TODO: put this somewhere else
+
         # Create widgets
         self.main_window = main_window
+
         self.tab_widget = tab_widget
 
         self.duration_spinbox = QSpinBox()
@@ -219,13 +246,16 @@ class ExperimentWindow(QWidget):
         self.fps_label = QLabel()
 
         self.experiment_type_selector = QComboBox()
-        self.data_folder = Path("/mnt/upramdya_data/MD/")
-        experiments_list = [d.name for d in self.data_folder.iterdir() if d.is_dir()]
-        self.experiment_type_selector.addItems(experiments_list)
-        self.experiment_type_selector.addItem("New Experiment")
-        # self.experiment_type_selector.addItems(["Ball pushing", "Standard"])
+        self.settings = ExperimentSettings()
+        self.populate_experiments()
         self.experiment_type_selector.currentIndexChanged.connect(
             self.on_experiment_type_changed
+        )
+
+        # Initialise the experiment type to the first item in the combo box with associated experiment path
+        self.current_experiment_type = self.experiment_type_selector.itemText(0)
+        self.experiment_path = self.data_folder / Path(
+            self.settings.experiments[0]["path"]
         )
 
         self.camera_settings = (
@@ -318,8 +348,11 @@ class ExperimentWindow(QWidget):
             self.DataPath = Path("/Volumes/upramdya/files/MD/MultiMazeRecorder/Videos")
         # Linux Datapath
         if platform.system() == "Linux":
-            self.DataPath = Path("/mnt/upramdya_data/MD/MultiMazeRecorder/Videos")
+            self.DataPath = Path("/mnt/upramdya_data/MD/")
             self.local_path = Path("/home/matthias/Videos/")
+            self.experiment_path = (
+                self.DataPath / self.experiment_type_selector.currentText()
+            )
 
         # Check if Arduino is available and enable hardware triggering if so
         if os.path.exists("/dev/ttyACM0"):
@@ -327,6 +360,42 @@ class ExperimentWindow(QWidget):
             self.HardwareTrigger_checkbox.setChecked(True)
         else:
             self.HardwareTrigger_checkbox.setEnabled(False)
+
+    def populate_experiments(self):
+        for experiment in self.settings.experiments:
+            self.experiment_type_selector.addItem(experiment["name"])
+        self.experiment_type_selector.addItem("New Experiment")
+
+    def create_new_experiment(self):
+        # Temporarily disable the "New Experiment" option to avoid the loop
+        new_experiment_index = self.experiment_type_selector.findText("New Experiment")
+        if new_experiment_index != -1:  # Check if "New Experiment" option exists
+            self.experiment_type_selector.removeItem(new_experiment_index)
+
+        path = QFileDialog.getExistingDirectory(self, "Select Experiment Data Folder")
+        if path:
+            name, ok = QInputDialog.getText(
+                self, "Experiment Name", "Enter the name of the new experiment:"
+            )
+            if ok and name:
+                self.settings.add_experiment(name, Path(path))
+                # Insert the new experiment into the dropdown
+                self.experiment_type_selector.insertItem(
+                    self.experiment_type_selector.count(), name
+                )
+                # Set the current index to the new experiment
+                self.experiment_type_selector.setCurrentIndex(
+                    self.experiment_type_selector.count() - 1
+                )
+
+        # Re-add the "New Experiment" option at the end of the process
+        self.experiment_type_selector.addItem("New Experiment")
+
+    def setup_processing_window(self):
+        # This method will be called after the ExperimentWindow is fully initialized
+        # to synchronize the folder updating process.
+
+        self.processing_window = ProcessingWindow(self, self.main_window)
 
     def create_table(
         self, metadata=None, table_style="arenas", experiment_type=None, init=False
@@ -701,24 +770,27 @@ class ExperimentWindow(QWidget):
     def on_experiment_type_changed(self, index):
         self.current_experiment_type = self.experiment_type_selector.itemText(index)
 
-        # If the experiment type is ball pushing, enable the table style selector
-        if self.current_experiment_type == "BallPushing":
-            self.table_style_selector.setDisabled(False)
-            self.camera_settings = (
-                "/home/matthias/multimaze_recorder/Presets/ballpushing_set.json"
-            )
+        # # If the experiment type is ball pushing, enable the table style selector
+        # if self.current_experiment_type == "BallPushing":
+        #     self.table_style_selector.setDisabled(False)
+        #     self.camera_settings = (
+        #         "/home/matthias/multimaze_recorder/Presets/ballpushing_set.json"
+        #     )
 
-            print(self.camera_settings)
+        #     print(self.camera_settings)
 
-        # If the experiment type is not BallPushing, set the table style to "arenas" and disable the table style selector
-        elif self.current_experiment_type != "BallPushing":
-            self.table_style_selector.setCurrentIndex(0)
-            self.table_style_selector.setDisabled(True)
-            self.camera_settings = (
-                "/home/matthias/multimaze_recorder/Presets/standard_set.json"
-            )
+        # # If the experiment type is not BallPushing, set the table style to "arenas" and disable the table style selector
+        # elif self.current_experiment_type != "BallPushing":
+        #     self.table_style_selector.setCurrentIndex(0)
+        #     self.table_style_selector.setDisabled(True)
+        #     self.camera_settings = (
+        #         "/home/matthias/multimaze_recorder/Presets/standard_set.json"
+        #     )
 
-            print(self.camera_settings)
+        # print(self.camera_settings)
+
+        if self.experiment_type_selector.currentText() == "New Experiment":
+            self.create_new_experiment()
 
         # Update Table
         # Create a new table using the loaded metadata
@@ -737,6 +809,18 @@ class ExperimentWindow(QWidget):
 
         # Store a reference to the new table in an attribute
         self.table = table
+
+        # Get the experiment path from the experiments.json file based on the selected experiment type
+        for experiment in self.settings.experiments:
+            if experiment["name"] == self.current_experiment_type:
+                self.experiment_path = Path(experiment["path"])
+                break
+
+        self.experiment_path = self.DataPath / self.experiment_path
+
+        print(f"Selected experiment type: {self.current_experiment_type}")
+
+        self.processing_window.update_remote_path(self.experiment_path)
 
     def select_metadata(self, index):
         # Get the selected metadata from the combo box
@@ -1264,9 +1348,11 @@ class ProcessingWindow(QWidget):
         folder_layout.addWidget(search_bar_label)
         folder_layout.addWidget(self.search_bar)
 
+        self.remote_path = self.experiment_window.experiment_path
+
         # Create a label and list widget for the data path folders
-        data_path_label = QLabel("Lab server videos:")
-        folder_layout.addWidget(data_path_label)
+        self.data_path_label = QLabel(f"Lab server videos: ({self.remote_path})")
+        folder_layout.addWidget(self.data_path_label)
         self.data_path_folder_list = QListWidget()
         folder_layout.addWidget(self.data_path_folder_list)
 
@@ -1280,6 +1366,22 @@ class ProcessingWindow(QWidget):
         self.populate_folder_lists()
 
         self.setLayout(layout)
+
+    def update_remote_path(self, new_path):
+
+        print(f"Updating remote path to {new_path}")
+        self.remote_path = new_path
+
+        # Update the label to reflect the new path
+        self.data_path_label.setText(f"Lab server videos: ({new_path})")
+
+        # Remove the old title from the layout and add the new one
+        layout = self.layout()
+        layout.removeWidget(self.data_path_label)
+        layout.addWidget(self.data_path_label)
+
+        # Refresh the folder lists
+        self.populate_folder_lists()
 
     def on_crop_button_clicked(self):
         # Launch the terminal and run the run_processimages command
@@ -1470,7 +1572,9 @@ class ProcessingWindow(QWidget):
         self.local_path_folder_list.clear()
 
         # Get the data path from the experiment window
-        data_path = Path(self.experiment_window.DataPath)
+        data_path = self.remote_path
+
+        print(data_path)
 
         # Add the folders from the data path to the data path list widget
         if data_path.exists():
@@ -1690,3 +1794,5 @@ app.exec()
 
 # Stop the live stream when the application exits
 experiment_window.stop_live_stream()
+
+# TODO: refactor the GUI for better readability and maintainability.
