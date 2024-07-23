@@ -5,10 +5,10 @@
     },
     {
         "name": "Optobot",
-        "path": "/mnt/upramdya_data/MD/Optogenetics/Optobot"
+        "path": "Optogenetics/Optobot"
     },
     {
         "name": "Irene experiments",
-        "path": "/mnt/upramdya_data/MD/Irene_Optobot"
+        "path": "Irene_Optobot"
     }
 ]
