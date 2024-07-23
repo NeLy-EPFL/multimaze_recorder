@@ -29,12 +29,16 @@ class ProcessingWindow(QWidget):
     def __init__(self, tab_widget, main_window):
         super().__init__()
 
+        self.data_folder = Path("/mnt/upramdya_data/MD/")
+
         self.main_window = main_window
 
         self.signals = ProcessingWindowSignals()
         self.tab_widget = tab_widget
         # Store a reference to the experiment window
         # self.experiment_window = ExperimentWindow(self.tab_widget, self.main_window)
+
+        self.settings = ExperimentSettings()
 
         # Create a horizontal layout for the central widget
         layout = QHBoxLayout()
@@ -96,10 +100,27 @@ class ProcessingWindow(QWidget):
         self.local_path_folder_list = QListWidget()
         folder_layout.addWidget(self.local_path_folder_list)
 
+        self.experiment_type = "Standard"
+
         # Populate the list widgets with the folders
         self.populate_folder_lists()
 
         self.setLayout(layout)
+
+    def update_experiment_type(self, experiment_type):
+        self.experiment_type = experiment_type
+
+        for experiment in self.settings.experiments:
+            if experiment["name"] == experiment_type:
+                newpath = experiment["path"]
+                break
+        # Update the remote path based on the experiment type
+
+        self.update_remote_path(newpath)
+
+        self.populate_folder_lists()
+
+        print(f"Experiment type updated to {self.experiment_type}")
 
     def set_experiment_path(self, experiment_path):
         # Ensure experiment_path is a Path object
@@ -109,7 +130,7 @@ class ProcessingWindow(QWidget):
 
     def update_remote_path(self, new_path):
         # Ensure new_path is a Path object
-        self.remote_path = Path(new_path)
+        self.remote_path = self.data_folder / Path(new_path)
         print(f"Updating remote path to {self.remote_path}")
         # Update the label to reflect the new path
         self.data_path_label.setText(f"Lab server videos: ({self.remote_path})")
@@ -277,6 +298,18 @@ class ProcessingWindow(QWidget):
         #     ) as f:
         #         variables_registry = json.load(f)
 
+        # Check if the current experiment type has a corresponding metadata registry and if so load it, else load an empty registry
+
+        # for experiment in self.settings.experiments:
+        #     if experiment["name"] == self.experiment_type:
+        #         if experiment["metadata_registry"]:
+        #             with open(experiment["metadata_registry"], "r") as f:
+        #                 variables_registry = json.load(f)
+        #         break
+
+        # else:
+        #     variables_registry = {}
+
         # Load the metadata file
         metadata_path = Path(folder) / "metadata.json"
         if metadata_path.exists():
@@ -286,8 +319,8 @@ class ProcessingWindow(QWidget):
             return False
 
         # Check if all variables from the registry are present in the metadata
-        if not all(variable in metadata["Variable"] for variable in variables_registry):
-            return False
+        # if not all(variable in metadata["Variable"] for variable in variables_registry):
+        #     return False
 
         # Check if all columns have an associated value for each variable
         for variable, values in metadata.items():

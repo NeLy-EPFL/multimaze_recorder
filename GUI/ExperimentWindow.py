@@ -24,7 +24,8 @@ class ExperimentWindowSignals(QObject):
     It is used to define the signals that are emitted by the ExperimentWindow class to other windows of the GUI.
     """
 
-    experimentPathChanged = pyqtSignal(Path)
+    # experimentPathChanged = pyqtSignal(Path)
+    experiment_typeChanged = pyqtSignal(str)
 
 
 class ExperimentWindow(QWidget):
@@ -127,7 +128,7 @@ class ExperimentWindow(QWidget):
         self.experiment_type_selector.currentIndexChanged.connect(
             self.on_experiment_type_changed
         )
-        # Initialise the experiment type and path
+        # Initialise the experiment type and path to the current experiment type
         self.set_experiment_path(0)
 
         # Emit the signal with the initial experiment path
@@ -247,8 +248,10 @@ class ExperimentWindow(QWidget):
         self.experiment_path = self.data_folder / Path(
             self.settings.experiments[index]["path"]
         )
-        # Emit the signal with the new experiment path
-        self.signals.experimentPathChanged.emit(self.experiment_path)
+        # Emit the signal with the new experiment type
+        self.signals.experiment_typeChanged.emit(
+            self.settings.experiments[index]["name"]
+        )
 
     def populate_experiments(self):
         for experiment in self.settings.experiments:
@@ -348,28 +351,35 @@ class ExperimentWindow(QWidget):
                             table.setItem(row, col, value_item)
                         col += 1
 
-                # Check if the registry file exists and is not empty
+                # Check if a registry file exists for this type of experiment and is not empty
 
-                if not experiment_type:
-                    if self.current_experiment_type == "BallPushing":
-                        registry_file = Path(
-                            "Metadata_Registries/variables_registry_BallPushing.json"
-                        )
-                    elif self.current_experiment_type == "Standard":
-                        registry_file = Path(
-                            "Metadata_Registries/variables_registry_Standard.json"
-                        )
+                for experiment in self.settings.experiments:
+                    if experiment["name"] == self.current_experiment_type:
+                        if experiment["metadata"]:
+                            print(f"Loading metadata from {experiment['metadata']}")
+                            registry_file = Path(experiment["metadata"])
 
-                else:
-                    if experiment_type == "BallPushing":
-                        registry_file = Path(
-                            "Metadata_Registries/variables_registry_BallPushing.json"
-                        )
-                    elif experiment_type == "Standard":
-                        registry_file = Path(
-                            "Metadata_Registries/variables_registry_Standard.json"
-                        )
+                    # if not experiment_type:
+                    #     if self.current_experiment_type == "BallPushing":
+                    #         registry_file = Path(
+                    #             "Metadata_Registries/variables_registry_BallPushing.json"
+                    #         )
+                    #     elif self.current_experiment_type == "Standard":
+                    #         registry_file = Path(
+                    #             "Metadata_Registries/variables_registry_Standard.json"
+                    #         )
+
+                    # else:
+                    #     if experiment_type == "BallPushing":
+                    #         registry_file = Path(
+                    #             "Metadata_Registries/variables_registry_BallPushing.json"
+                    #         )
+                    #     elif experiment_type == "Standard":
+                    #         registry_file = Path(
+                    #             "Metadata_Registries/variables_registry_Standard.json"
+                    #         )
                     else:
+                        print("No metadata file found for this experiment type.")
                         # don't load any pre-existing metadata
                         registry_file = None
 

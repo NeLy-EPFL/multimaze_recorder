@@ -78,7 +78,7 @@ class MainWindow(QMainWindow):
 
         # Create the processing window and add it as a tab
         self.processing_window = ProcessingWindow(self.tab_widget, self)
-        self.experiment_window.signals.experimentPathChanged.connect(
+        self.experiment_window.signals.experiment_typeChanged.connect(
             self.processing_window.set_experiment_path
         )
         self.tab_widget.addTab(self.processing_window, "Processing")
@@ -95,8 +95,8 @@ class MainWindow(QMainWindow):
 
         # Handle the experiment path sharing between the experiment and processing windows
         # Connect the signal to the slot
-        self.experiment_window.signals.experimentPathChanged.connect(
-            self.processing_window.update_remote_path
+        self.experiment_window.signals.experiment_typeChanged.connect(
+            self.processing_window.update_experiment_type
         )
 
         # Create a terminal emulator widget

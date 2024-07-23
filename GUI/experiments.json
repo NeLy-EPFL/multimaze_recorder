@@ -1,7 +1,8 @@
 [
     {
         "name": "Ball pushing",
-        "path": "MultiMazeRecorder/Videos"
+        "path": "MultiMazeRecorder/Videos",
+        "metadata": "/Metadata_Registries/variables_registry_BallPushing.json"
     },
     {
         "name": "Optobot",
