@@ -87,3 +87,38 @@ class Settings:
                         # No return statement here, so the inner loop continues for folder selection
             else:  # User cancelled the dialog or closed it without entering a name
                 return None
+
+    def update_settings(self, experiment_name):
+        # Find the experiment with the matching name
+        experiment = next(
+            (exp for exp in self.experiments if exp["name"] == experiment_name), None
+        )
+
+        if experiment is not None:
+            # Update the experiment type
+            self.experiment_type = experiment["name"]
+
+            # Update the experiment path
+            self.experiment_path = self.datafolder / Path(experiment["path"])
+
+            # Update the metadata template, use default if not specified
+            self.metadata_template = (
+                Path(experiment["metadata_template"])
+                if "metadata_template" in experiment
+                else Path("Metadata_Templates/variables_registry_Standard.json")
+            )
+
+            # Update the camera settings, use default if not specified
+            self.camera_settings = (
+                experiment["camera_settings"]
+                if "camera_settings" in experiment
+                else "Presets/standard_set.json"
+            )
+
+            # Optionally, print or log the updated settings
+            print(f"Updated settings: Experiment type: {self.experiment_type}")
+            print(f"Associated path: {self.experiment_path}")
+            print(f"Metadata file: {self.metadata_template}")
+            print(f"Camera settings: {self.camera_settings}")
+        else:
+            print(f"No experiment found with the name: {experiment_name}")

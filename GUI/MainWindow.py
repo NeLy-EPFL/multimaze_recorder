@@ -61,7 +61,7 @@ class MainWindow(QMainWindow):
                 )
 
                 self.online = False
-                
+
         self.settings = Settings()
 
         self.setWindowTitle("Multimaze Recorder")
@@ -90,6 +90,9 @@ class MainWindow(QMainWindow):
         # self.experimentWindow.processDataRequested.connect(
         #     self.processingWindow.processData
         # )
+
+        # Handle the "update settings" signal from the experiment window
+        # self.experiment_window.signals.updateSettings.connect(self.update_settings)
 
         # Handle the open data folder requests from the processing window
         self.processing_window.signals.openDataFolderRequested.connect(
@@ -152,6 +155,12 @@ class MainWindow(QMainWindow):
                 self.experiment_window.save_data()
 
         event.accept()
+
+    def update_settings(self, experiment_name):
+
+        self.settings.update_settings(experiment_name)
+
+        print("Updated settings in Main window.")
 
 
 if __name__ == "__main__":

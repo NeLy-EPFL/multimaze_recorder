@@ -132,7 +132,7 @@ class ExperimentWindow(QWidget):
             self.on_experiment_type_changed
         )
         # Initialise the experiment type and path to the current experiment type
-        self.set_experiment_path(0)
+        self.update_settings(0)
 
         # Emit the signal with the initial experiment path
         # self.signals.experimentPathChanged.emit(self.experiment_path)
@@ -246,53 +246,22 @@ class ExperimentWindow(QWidget):
         else:
             self.HardwareTrigger_checkbox.setEnabled(False)
 
-    def set_experiment_path(self, index):
+    def update_settings(self, index):
+
+        # Update the settings with the selected experiment type name
+
+        # Emit the signal with the new experiment type
+
         self.current_experiment_type = self.experiment_type_selector.itemText(index)
+
         self.experiment_path = self.data_folder / Path(
             self.settings.experiments[index]["path"]
-        )
-        # Emit the signal with the new experiment type
-        self.signals.experiment_typeChanged.emit(
-            self.settings.experiments[index]["name"]
         )
 
     def populate_experiments(self):
         for experiment in self.settings.experiments:
             self.experiment_type_selector.addItem(experiment["name"])
         self.experiment_type_selector.addItem("New Experiment")
-
-    def create_new_experiment(self):
-        # Temporarily disable the "New Experiment" option to avoid the loop
-        new_experiment_index = self.experiment_type_selector.findText("New Experiment")
-        if new_experiment_index != -1:  # Check if "New Experiment" option exists
-            self.experiment_type_selector.removeItem(new_experiment_index)
-
-        path = QFileDialog.getExistingDirectory(self, "Select Experiment Data Folder")
-        if path:
-            name, ok = QInputDialog.getText(
-                self, "Experiment Name", "Enter the name of the new experiment:"
-            )
-            if ok and name:
-                # Get the path difference between the data folder and the selected folder
-                path = Path(path).relative_to(self.data_folder)
-                self.settings.add_experiment(name, path)
-                # Insert the new experiment into the dropdown
-                self.experiment_type_selector.insertItem(
-                    self.experiment_type_selector.count(), name
-                )
-                # Set the current index to the new experiment
-                self.experiment_type_selector.setCurrentIndex(
-                    self.experiment_type_selector.count() - 1
-                )
-
-        # Re-add the "New Experiment" option at the end of the process
-        self.experiment_type_selector.addItem("New Experiment")
-
-    # def setup_processing_window(self):
-    #     # This method will be called after the ExperimentWindow is fully initialized
-    #     # to synchronize the folder updating process.
-
-    #     self.processing_window = ProcessingWindow(self, self.main_window)
 
     def create_table(
         self, metadata=None, table_style="arenas", experiment_type=None, init=False
@@ -672,6 +641,8 @@ class ExperimentWindow(QWidget):
             return False
 
     def on_experiment_type_changed(self, index):
+
+        # If New Experiment is selected, create a new experiment
         if self.experiment_type_selector.currentText() == "New Experiment":
             # Temporarily disable the "New Experiment" option to avoid the loop
             new_experiment_index = self.experiment_type_selector.findText("New Experiment")
@@ -700,11 +671,15 @@ class ExperimentWindow(QWidget):
                     self.experiment_type_selector.setCurrentIndex(0)
                 else:
                     # Handle the case where there are no experiments at all
-                    return  # Exit the function as there's nothing more to do
+                    return  
 
         # Ensure index is within bounds before setting experiment path
         if 0 <= index < len(self.settings.experiments):
-            self.set_experiment_path(index)
+
+            self.signals.experiment_typeChanged.emit(
+                self.settings.experiments[index]["name"]
+            )
+            
         else:
             print("Error: Invalid experiment index.")
             return  # Exit the function to avoid proceeding with an invalid index
@@ -728,8 +703,6 @@ class ExperimentWindow(QWidget):
         self.table = table
 
         print(f"Selected experiment type: {self.current_experiment_type}")
-
-      
 
     def select_metadata(self, index):
         # Get the selected metadata from the combo box
