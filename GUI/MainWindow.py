@@ -2,7 +2,8 @@ from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 
-from Utilities import CustomTableWidget, ExperimentSettings
+from Utilities import CustomTableWidget
+from Settings import Settings
 from ExperimentWindow import ExperimentWindow
 from ProcessingWindow import ProcessingWindow
 
@@ -60,6 +61,8 @@ class MainWindow(QMainWindow):
                 )
 
                 self.online = False
+                
+        self.settings = Settings()
 
         self.setWindowTitle("Multimaze Recorder")
         # Set the default size of the window

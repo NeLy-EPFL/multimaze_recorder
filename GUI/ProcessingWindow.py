@@ -2,7 +2,8 @@ from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 
-from Utilities import CustomTableWidget, ExperimentSettings
+from Utilities import CustomTableWidget
+from Settings import Settings
 
 import sys
 from pathlib import Path
@@ -32,13 +33,12 @@ class ProcessingWindow(QWidget):
         self.data_folder = Path("/mnt/upramdya_data/MD/")
 
         self.main_window = main_window
+        self.settings = main_window.settings
 
         self.signals = ProcessingWindowSignals()
         self.tab_widget = tab_widget
         # Store a reference to the experiment window
         # self.experiment_window = ExperimentWindow(self.tab_widget, self.main_window)
-
-        self.settings = ExperimentSettings()
 
         # Create a horizontal layout for the central widget
         layout = QHBoxLayout()
@@ -86,7 +86,7 @@ class ProcessingWindow(QWidget):
 
         # self.remote_path = self.experiment_window.experiment_path
         # Initialize remote_path with a default value
-        self.remote_path = Path.home()
+        self.remote_path = self.settings.experiment_path
 
         # Create a label and list widget for the data path folders
         self.data_path_label = QLabel(f"Lab server videos: ({self.remote_path})")

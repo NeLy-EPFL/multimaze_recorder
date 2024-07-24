@@ -2,7 +2,7 @@ from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 
-from Utilities import CustomTableWidget, ExperimentSettings
+from Utilities import CustomTableWidget
 
 import sys
 from pathlib import Path
@@ -110,6 +110,9 @@ class ExperimentWindow(QWidget):
 
         # Create widgets
         self.main_window = main_window
+
+        self.settings = main_window.settings
+
         self.signals = ExperimentWindowSignals()
         self.tab_widget = tab_widget
 
@@ -123,7 +126,7 @@ class ExperimentWindow(QWidget):
         self.fps_label = QLabel()
 
         self.experiment_type_selector = QComboBox()
-        self.settings = ExperimentSettings()
+
         self.populate_experiments()
         self.experiment_type_selector.currentIndexChanged.connect(
             self.on_experiment_type_changed
@@ -549,7 +552,7 @@ class ExperimentWindow(QWidget):
         duration = self.duration_spinbox.value()
         fps = self.fps_spinbox.value()
         folder = self.folder_lineedit.text()
-        camera_settings = self.camera_settings
+        camera_settings = self.settings.camera_settings
 
         # Check if a folder is open
         if self.folder_open == False:
@@ -669,31 +672,42 @@ class ExperimentWindow(QWidget):
             return False
 
     def on_experiment_type_changed(self, index):
-        # self.current_experiment_type = self.experiment_type_selector.itemText(index)
-
-        # # If the experiment type is ball pushing, enable the table style selector
-        # if self.current_experiment_type == "BallPushing":
-        #     self.table_style_selector.setDisabled(False)
-        #     self.camera_settings = (
-        #         "/home/matthias/multimaze_recorder/Presets/ballpushing_set.json"
-        #     )
-
-        #     print(self.camera_settings)
-
-        # # If the experiment type is not BallPushing, set the table style to "arenas" and disable the table style selector
-        # elif self.current_experiment_type != "BallPushing":
-        #     self.table_style_selector.setCurrentIndex(0)
-        #     self.table_style_selector.setDisabled(True)
-        #     self.camera_settings = (
-        #         "/home/matthias/multimaze_recorder/Presets/standard_set.json"
-        #     )
-
-        # print(self.camera_settings)
-
         if self.experiment_type_selector.currentText() == "New Experiment":
-            self.create_new_experiment()
+            # Temporarily disable the "New Experiment" option to avoid the loop
+            new_experiment_index = self.experiment_type_selector.findText("New Experiment")
+            if new_experiment_index != -1:  # Check if "New Experiment" option exists
+                self.experiment_type_selector.removeItem(new_experiment_index)
 
-        self.set_experiment_path(index)
+            new_exp_name = self.settings.create_new_experiment(self)  # Pass self as parent
+
+            # Re-add the "New Experiment" option at the end of the process
+            self.experiment_type_selector.addItem("New Experiment")
+
+            if new_exp_name:
+                # Find the index of the newly added experiment
+                index = next((i for i, exp in enumerate(self.settings.experiments) if exp["name"] == new_exp_name), -1)
+                if index != -1:
+                    # Insert the new experiment into the dropdown and set the current index
+                    self.experiment_type_selector.insertItem(index, new_exp_name)
+                    self.experiment_type_selector.setCurrentIndex(index)
+                else:
+                    # Handle error if the new experiment was not found
+                    print("Error: New experiment was not added correctly.")
+                    return
+            else:
+                # If no new experiment was added, revert to the previous selection or default
+                if self.experiment_type_selector.count() > 0:
+                    self.experiment_type_selector.setCurrentIndex(0)
+                else:
+                    # Handle the case where there are no experiments at all
+                    return  # Exit the function as there's nothing more to do
+
+        # Ensure index is within bounds before setting experiment path
+        if 0 <= index < len(self.settings.experiments):
+            self.set_experiment_path(index)
+        else:
+            print("Error: Invalid experiment index.")
+            return  # Exit the function to avoid proceeding with an invalid index
 
         # Update Table
         # Create a new table using the loaded metadata
@@ -713,17 +727,9 @@ class ExperimentWindow(QWidget):
         # Store a reference to the new table in an attribute
         self.table = table
 
-        # Get the experiment path from the experiments.json file based on the selected experiment type
-        # for experiment in self.settings.experiments:
-        #     if experiment["name"] == self.current_experiment_type:
-        #         self.experiment_path = Path(experiment["path"])
-        #         break
-
-        # self.experiment_path = self.DataPath / self.experiment_path
-
         print(f"Selected experiment type: {self.current_experiment_type}")
 
-        # self.processing_window.update_remote_path(self.experiment_path)
+      
 
     def select_metadata(self, index):
         # Get the selected metadata from the combo box

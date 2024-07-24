@@ -112,24 +112,3 @@ class CustomTableWidget(QTableWidget):
                 item = self.item(row, col)
                 if item:
                     item.setBackground(QColor(color))
-
-
-class ExperimentSettings:
-    def __init__(self):
-        self.experiments = self.load_experiments()
-
-    def load_experiments(self):
-        # Load experiments from a file or return a default list
-        try:
-            with open("experiments.json", "r") as file:
-                return json.load(file)
-        except FileNotFoundError:
-            return []
-
-    def save_experiments(self):
-        with open("experiments.json", "w") as file:
-            json.dump(self.experiments, file)
-
-    def add_experiment(self, name, path):
-        self.experiments.append({"name": name, "path": str(path)})
-        self.save_experiments()
