@@ -62,7 +62,11 @@ class MainWindow(QMainWindow):
 
                 self.online = False
 
+        # Initialise the settings
+
         self.settings = Settings()
+
+        # Create the Windows
 
         self.setWindowTitle("Multimaze Recorder")
         # Set the default size of the window
@@ -86,14 +90,6 @@ class MainWindow(QMainWindow):
         )
         self.tab_widget.addTab(self.processing_window, "Processing")
 
-        # Connect signal to slot
-        # self.experimentWindow.processDataRequested.connect(
-        #     self.processingWindow.processData
-        # )
-
-        # Handle the "update settings" signal from the experiment window
-        # self.experiment_window.signals.updateSettings.connect(self.update_settings)
-
         # Handle the open data folder requests from the processing window
         self.processing_window.signals.openDataFolderRequested.connect(
             self.experiment_window.open_data_folder
@@ -104,8 +100,11 @@ class MainWindow(QMainWindow):
         self.experiment_window.signals.experiment_typeChanged.connect(
             self.processing_window.update_experiment_type
         )
+        self.experiment_window.signals.experiment_typeChanged.connect(
+            self.refresh_settings
+        )
 
-        # Create a terminal emulator widget
+        # TODO: Create a terminal emulator widget
         # self.terminal = QTermWidget()
         # layout.addWidget(self.terminal)
 
@@ -156,11 +155,15 @@ class MainWindow(QMainWindow):
 
         event.accept()
 
-    def update_settings(self, experiment_name):
+    def refresh_settings(self, experiment_name):
 
-        self.settings.update_settings(experiment_name)
+        try:
+            self.settings.update_settings(experiment_name)
 
-        print("Updated settings in Main window.")
+            print("Updated settings in Main window.")
+
+        except Exception as e:
+            print(f"Error updating settings: {e}")
 
 
 if __name__ == "__main__":
@@ -178,19 +181,3 @@ if __name__ == "__main__":
     app.aboutToQuit.connect(experiment_window.stop_live_stream)
 
     sys.exit(app.exec())
-
-# app = QApplication(sys.argv)
-
-# window = MainWindow()
-# window.show()
-
-# # Get a reference to the experiment window
-# experiment_window = window.findChild(ExperimentWindow)
-
-# # Start the live stream when the window is shown
-# experiment_window.start_live_stream()
-
-# app.exec()
-
-# # Stop the live stream when the application exits
-# experiment_window.stop_live_stream()

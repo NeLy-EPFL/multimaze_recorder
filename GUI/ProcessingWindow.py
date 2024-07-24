@@ -379,6 +379,8 @@ class ProcessingWindow(QWidget):
                         item.setForeground(QColor("gray"))
                     self.local_path_folder_list.addItem(item)
 
+        # TODO: put these as settings related to the user.
+
         else:
             # Set the remote hostname and username
             remote_host = "mmrecorder"

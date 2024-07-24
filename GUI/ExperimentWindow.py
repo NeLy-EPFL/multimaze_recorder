@@ -111,7 +111,7 @@ class ExperimentWindow(QWidget):
         # Create widgets
         self.main_window = main_window
 
-        self.settings = main_window.settings
+        # self.main_window.settings = main_window.settings
 
         self.signals = ExperimentWindowSignals()
         self.tab_widget = tab_widget
@@ -126,26 +126,16 @@ class ExperimentWindow(QWidget):
         self.fps_label = QLabel()
 
         self.experiment_type_selector = QComboBox()
-
-        self.populate_experiments()
+        # Fill the experiment type selector with the available experiment types from the settings
+        for experiment in self.main_window.settings.experiments:
+            self.experiment_type_selector.addItem(experiment["name"])
+        self.experiment_type_selector.addItem("New Experiment")
         self.experiment_type_selector.currentIndexChanged.connect(
             self.on_experiment_type_changed
         )
+
         # Initialise the experiment type and path to the current experiment type
-        self.update_settings(0)
-
-        # Emit the signal with the initial experiment path
-        # self.signals.experimentPathChanged.emit(self.experiment_path)
-
-        # Initialise the experiment type to the first item in the combo box with associated experiment path
-        # self.current_experiment_type = self.experiment_type_selector.itemText(0)
-        # self.experiment_path = self.data_folder / Path(
-        #     self.settings.experiments[0]["path"]
-        # )
-
-        self.camera_settings = (
-            "/home/matthias/multimaze_recorder/Presets/ballpushing_set.json"
-        )
+        # self.update_settings(0)
 
         self.folder_lineedit = QLineEdit()
 
@@ -246,22 +236,17 @@ class ExperimentWindow(QWidget):
         else:
             self.HardwareTrigger_checkbox.setEnabled(False)
 
-    def update_settings(self, index):
+    # def update_settings(self, index):
 
-        # Update the settings with the selected experiment type name
+    #     # Update the settings with the selected experiment type name
 
-        # Emit the signal with the new experiment type
+    #     # Emit the signal with the new experiment type
 
-        self.current_experiment_type = self.experiment_type_selector.itemText(index)
+    #     self.current_experiment_type = self.experiment_type_selector.itemText(index)
 
-        self.experiment_path = self.data_folder / Path(
-            self.settings.experiments[index]["path"]
-        )
-
-    def populate_experiments(self):
-        for experiment in self.settings.experiments:
-            self.experiment_type_selector.addItem(experiment["name"])
-        self.experiment_type_selector.addItem("New Experiment")
+    #     self.experiment_path = self.data_folder / Path(
+    #         self.main_window.settings.experiments[index]["path"]
+    #     )
 
     def create_table(
         self, metadata=None, table_style="arenas", experiment_type=None, init=False
@@ -323,13 +308,13 @@ class ExperimentWindow(QWidget):
                             table.setItem(row, col, value_item)
                         col += 1
 
-                # Check if a registry file exists for this type of experiment and is not empty
+                    # Check if a registry file exists for this type of experiment and is not empty
 
-                for experiment in self.settings.experiments:
-                    if experiment["name"] == self.current_experiment_type:
-                        if experiment["metadata"]:
-                            print(f"Loading metadata from {experiment['metadata']}")
-                            registry_file = Path(experiment["metadata"])
+                    # for experiment in self.main_window.settings.experiments:
+                    #     if experiment["name"] == self.current_experiment_type:
+                    #         if experiment["metadata"]:
+                    #             print(f"Loading metadata from {experiment['metadata']}")
+                    #             registry_file = Path(experiment["metadata"])
 
                     # if not experiment_type:
                     #     if self.current_experiment_type == "BallPushing":
@@ -362,14 +347,14 @@ class ExperimentWindow(QWidget):
                 ):
                     # Read the list of known variables from the registry file
                     with open(registry_file, "r") as f:
-                        variables_registry = json.load(f)
+                        self.main_window.metadata_template = json.load(f)
                 else:
                     # Create a new list to store the known variables
-                    variables_registry = []
+                    self.main_window.settings.metadata_template = []
 
                 # Check if any known variables are missing from the table and add them if necessary
                 row = len(metadata["Variable"])
-                for variable in variables_registry:
+                for variable in self.main_window.settings.metadata_template:
                     if variable not in metadata["Variable"]:
                         table.insertRow(row)
                         value_item = QTableWidgetItem(variable)
@@ -399,10 +384,10 @@ class ExperimentWindow(QWidget):
 
                 else:
                     # Create a new list to store the known variables
-                    variables_registry = []
+                    self.main_window.settings.metadata_template = []
 
             print(
-                f"Creating table with {self.current_experiment_type} type and {table_style} style. Using registry {selected_registry}."
+                f"Creating table with {self.main_window.settings.experiment_type} and {table_style} style. Using registry {self.main_window.settings.metadata_template}."
             )
         # Resize the rows and columns to fit their contents
         table.resizeRowsToContents()
@@ -521,7 +506,7 @@ class ExperimentWindow(QWidget):
         duration = self.duration_spinbox.value()
         fps = self.fps_spinbox.value()
         folder = self.folder_lineedit.text()
-        camera_settings = self.settings.camera_settings
+        camera_settings = self.main_window.settings.camera_settings
 
         # Check if a folder is open
         if self.folder_open == False:
@@ -645,18 +630,29 @@ class ExperimentWindow(QWidget):
         # If New Experiment is selected, create a new experiment
         if self.experiment_type_selector.currentText() == "New Experiment":
             # Temporarily disable the "New Experiment" option to avoid the loop
-            new_experiment_index = self.experiment_type_selector.findText("New Experiment")
+            new_experiment_index = self.experiment_type_selector.findText(
+                "New Experiment"
+            )
             if new_experiment_index != -1:  # Check if "New Experiment" option exists
                 self.experiment_type_selector.removeItem(new_experiment_index)
 
-            new_exp_name = self.settings.create_new_experiment(self)  # Pass self as parent
+            new_exp_name = self.main_window.settings.create_new_experiment(
+                self
+            )  # Pass self as parent
 
             # Re-add the "New Experiment" option at the end of the process
             self.experiment_type_selector.addItem("New Experiment")
 
             if new_exp_name:
                 # Find the index of the newly added experiment
-                index = next((i for i, exp in enumerate(self.settings.experiments) if exp["name"] == new_exp_name), -1)
+                index = next(
+                    (
+                        i
+                        for i, exp in enumerate(self.main_window.settings.experiments)
+                        if exp["name"] == new_exp_name
+                    ),
+                    -1,
+                )
                 if index != -1:
                     # Insert the new experiment into the dropdown and set the current index
                     self.experiment_type_selector.insertItem(index, new_exp_name)
@@ -671,22 +667,24 @@ class ExperimentWindow(QWidget):
                     self.experiment_type_selector.setCurrentIndex(0)
                 else:
                     # Handle the case where there are no experiments at all
-                    return  
+                    return
 
         # Ensure index is within bounds before setting experiment path
-        if 0 <= index < len(self.settings.experiments):
+        if 0 <= index < len(self.main_window.settings.experiments):
 
             self.signals.experiment_typeChanged.emit(
-                self.settings.experiments[index]["name"]
+                self.main_window.settings.experiments[index]["name"]
             )
-            
+
         else:
             print("Error: Invalid experiment index.")
             return  # Exit the function to avoid proceeding with an invalid index
 
         # Update Table
         # Create a new table using the loaded metadata
-        table = self.create_table(experiment_type=self.current_experiment_type)
+        table = self.create_table(
+            experiment_type=self.main_window.settings.experiment_type
+        )
 
         # Get the layout of the central widget
         layout = self.layout()
@@ -702,7 +700,7 @@ class ExperimentWindow(QWidget):
         # Store a reference to the new table in an attribute
         self.table = table
 
-        print(f"Selected experiment type: {self.current_experiment_type}")
+        print(f"Selected experiment type: {self.main_window.settings.experiment_type}")
 
     def select_metadata(self, index):
         # Get the selected metadata from the combo box
@@ -729,7 +727,7 @@ class ExperimentWindow(QWidget):
 
         else:
 
-            self.current_experiment_type = registry
+            self.main_window.settings.experiment_type = registry
 
             # Remove the existing table from the layout (if any)
             layout = self.layout()
@@ -769,7 +767,7 @@ class ExperimentWindow(QWidget):
             if not ok:
                 return
 
-            self.current_experiment_type = experiment_type
+            self.main_window.settings.experiment_type = experiment_type
             index = self.experiment_type_selector.findText(experiment_type)
 
             # If the experiment type is Standard, skip the table style selection and use the "arenas" layout
@@ -808,9 +806,9 @@ class ExperimentWindow(QWidget):
 
             table_style = self.table_style_selector.currentText()
 
-        folder_path = self.DataPath / folder_name
+        self.folder_path = self.DataPath / folder_name
         # If the folder already exists, show a message box asking if the user wants to open the existing folder or choose a different name
-        while folder_path.exists():
+        while self.folder_path.exists():
             reply = QMessageBox.question(
                 self,
                 "Folder Already Exists",
@@ -820,7 +818,7 @@ class ExperimentWindow(QWidget):
             )
             # Open the existing folder if the user clicked "Yes"
             if reply == QMessageBox.StandardButton.Yes:
-                self.open_data_folder(folder_path)
+                self.open_data_folder(self.folder_path)
                 return
             # Prompt the user to enter a new folder name if they clicked "No"
             else:
@@ -830,18 +828,18 @@ class ExperimentWindow(QWidget):
             return
         # Create the data folder with the specified name
         if ok and folder_name:
-            folder_path = self.DataPath / folder_name
-            folder_path.mkdir(parents=True, exist_ok=True)
+            self.folder_path = self.DataPath / folder_name
+            self.folder_path.mkdir(parents=True, exist_ok=True)
 
             # Update the folder line edit with the full path to the new data folder
-            self.folder_lineedit.setText(str(folder_path))
+            self.folder_lineedit.setText(str(self.folder_path))
 
             # Create subdirectories for each arena
             for i in range(1, 10):
-                arena_path = folder_path / f"arena{i}"
+                arena_path = self.folder_path / f"arena{i}"
                 arena_path.mkdir(parents=True, exist_ok=True)
 
-                if self.current_experiment_type == "BallPushing":
+                if self.main_window.settings.experiment_type == "BallPushing":
                     # Create subdirectories for each corridor
                     for j in range(1, 7):
                         corridor_path = arena_path / f"corridor{j}"
@@ -858,14 +856,14 @@ class ExperimentWindow(QWidget):
             metadata = self.create_metadata(table=self.table, table_style=table_style)
             if self.check_data_access() == False:
                 return
-            with open(folder_path / "metadata.json", "w") as f:
+            with open(self.folder_path / "metadata.json", "w") as f:
                 json.dump(metadata, f, indent=4)
 
             # Open the new data folder
-            self.open_data_folder(folder_path)
+            self.open_data_folder(self.folder_path)
 
     def open_data_folder(self, folder_path=None):
-        if folder_path and str(self.DataPath) not in str(folder_path):
+        if self.folder_path and str(self.DataPath) not in str(folder_path):
             return
 
         # Prompt the user to select a folder if no folder path was provided
@@ -879,38 +877,24 @@ class ExperimentWindow(QWidget):
             return
 
         # Convert the folder path to a Path object
-        folder_path = Path(folder_path)
+        self.folder_path = Path(folder_path)
 
-        # Check if the selected folder has a valid structure
-        valid_structure = True
-        for i in range(1, 10):
-            arena_path = folder_path / f"arena{i}"
-            if not arena_path.is_dir():
-                valid_structure = False
-                break
+        # Check if the selected folder and subfolders contains any videos
 
-            if self.current_experiment_type == "BallPushing":
-                for j in range(1, 7):
-                    corridor_path = arena_path / f"corridor{j}"
-                    if not corridor_path.is_dir():
-                        valid_structure = False
-                        break
-        # TODO: Fix wrong instances of this happening and also change the result of the reply
-        if not valid_structure:
-            # Show a message box asking for confirmation to open the folder
+        if not self.folder_path.glob("*.mp4"):
+
             reply = QMessageBox.question(
                 self,
-                "Invalid Folder Structure",
-                "This doesn't look like an experiment folder. Are you sure you want to open it?",
+                "No Videos Found",
+                "No videos found in the selected folder. Are you sure you want to open it?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes,
             )
-            # Return if the user clicked "No"
             if reply == QMessageBox.StandardButton.No:
                 return
 
         # Check if the selected folder contains a metadata.json file
-        metadata_path = folder_path / "metadata.json"
+        metadata_path = self.folder_path / "metadata.json"
         if not metadata_path.is_file():
             # Show a message box asking if the user wants to create a metadata.json file
             reply = QMessageBox.question(
@@ -948,11 +932,8 @@ class ExperimentWindow(QWidget):
                 with open(metadata_path, "w") as f:
                     json.dump(metadata, f, indent=4)
 
-        # Store the folder path in an attribute
-        self.folder_path = folder_path
-
         # Load the metadata from the selected folder
-        with open(folder_path / "metadata.json", "r") as f:
+        with open(self.folder_path / "metadata.json", "r") as f:
             metadata = json.load(f)
 
         table_style = self.detect_table_style(metadata)
@@ -991,57 +972,39 @@ class ExperimentWindow(QWidget):
         info_panel.setLayout(info_layout)
 
         # Add a label to display the folder path
-        folder_label = QLabel(f"Folder: {folder_path}")
+        folder_label = QLabel(f"Folder: {self.folder_path}")
 
         info_layout.addWidget(folder_label)
 
         # Check if the subfolders contain videos and .h5 files
-        full = True
-        processed = True
-        images = True
+        videos = False
+        processed = False
+        images = False
 
-        for i in range(1, 10):
-            arena_path = folder_path / f"arena{i}"
-            local_arena_path = self.local_path / folder_path.name / f"arena{i}"
+        if self.folder_path.glob("*.mp4"):
+            videos = True
 
-            if self.current_experiment_type == "Standard":
+        if self.folder_path.glob("*.h5"):
+            processed = True
 
-                if not any(arena_path.glob("*.mp4")):
-                    full = False
-                if not any(local_arena_path.glob("*.jpg")):
-                    images = False
-                if not any(arena_path.glob("*.h5")):
-                    processed = False
-            elif self.current_experiment_type == "BallPushing":
-                for j in range(1, 7):
-                    corridor_path = folder_path / f"arena{i}" / f"corridor{j}"
-                    local_corridor_path = (
-                        self.local_path
-                        / folder_path.name
-                        / f"arena{i}"
-                        / f"corridor{j}"
-                    )
-                    if not any(corridor_path.glob("*.mp4")):
-                        full = False
-                    if not any(local_corridor_path.glob("*.jpg")):
-                        images = False
-                    if not any(corridor_path.glob("*.h5")):
-                        processed = False
+        # TODO: use the ssh / local check to check if the local machine has an experiment recorder with this name.
 
-        if full or images:
+        if videos or images:
             # Disable the duration and fps spinboxes
             self.duration_spinbox.setDisabled(True)
             self.fps_spinbox.setDisabled(True)
             self.record_button.setDisabled(True)
 
             # if there are duration and fps files, apply their value to the spinboxes
-            if (folder_path / "duration.npy").exists():
-                self.duration_spinbox.setValue(np.load(folder_path / "duration.npy"))
-            if (folder_path / "fps.npy").exists():
-                self.fps_spinbox.setValue(np.load(folder_path / "fps.npy"))
+            if (self.folder_path / "duration.npy").exists():
+                self.duration_spinbox.setValue(
+                    np.load(self.folder_path / "duration.npy")
+                )
+            if (self.folder_path / "fps.npy").exists():
+                self.fps_spinbox.setValue(np.load(self.folder_path / "fps.npy"))
 
         # Add labels to display the status of the subfolders
-        full_label = QLabel(f"Full: {'Yes' if full else 'No'}")
+        full_label = QLabel(f"Full: {'Yes' if videos else 'No'}")
         processed_label = QLabel(f"Processed: {'Yes' if processed else 'No'}")
         info_layout.addWidget(full_label)
         info_layout.addWidget(processed_label)
@@ -1064,7 +1027,7 @@ class ExperimentWindow(QWidget):
         self.folder_open = True
 
         # Set the folder line edit to the selected folder
-        self.folder_lineedit.setText(str(folder_path.name))
+        self.folder_lineedit.setText(str(self.folder_path.name))
 
         self.folder_lineedit.setDisabled(True)
         self.table_style_selector.setDisabled(True)
@@ -1074,11 +1037,9 @@ class ExperimentWindow(QWidget):
             self.tab_widget.setCurrentIndex(0)
 
     def save_data(self):
-        # Get the current folder path
-        folder_path = self.folder_path
 
         # If no folder path has been entered, check if the folder line edit is empty
-        if not folder_path:
+        if not self.folder_path:
             folder_name = self.folder_lineedit.text()
 
             # If the folder line edit is empty, prompt the user to choose a folder name
@@ -1089,11 +1050,11 @@ class ExperimentWindow(QWidget):
                 self.create_data_folder(metadata)
 
                 # Get the new folder path from the line edit
-                folder_path = Path(self.folder_lineedit.text())
+                self.folder_path = Path(self.folder_lineedit.text())
 
             else:
                 # Use the text from the folder line edit as the folder name
-                folder_path = self.DataPath / folder_name
+                self.folder_path = self.DataPath / folder_name
 
                 self.create_data_folder()
                 metadata = self.create_metadata(table=self.table)
@@ -1101,7 +1062,7 @@ class ExperimentWindow(QWidget):
                 # Save the updated metadata
                 if self.check_data_access() == False:
                     return
-                with open(folder_path / "metadata.json", "w") as f:
+                with open(self.folder_path / "metadata.json", "w") as f:
                     json.dump(metadata, f, indent=4)
 
         else:
@@ -1112,15 +1073,15 @@ class ExperimentWindow(QWidget):
             # Save the updated metadata
             if self.check_data_access() == False:
                 return
-            with open(folder_path / "metadata.json", "w") as f:
+            with open(self.folder_path / "metadata.json", "w") as f:
                 json.dump(metadata, f, indent=4)
 
         # Check if the registry file exists and is not empty
-        if self.current_experiment_type == "BallPushing":
+        if self.main_window.settings.experiment_type == "BallPushing":
             registry_file = Path(
                 "Metadata_Registries/variables_registry_BallPushing.json"
             )
-        elif self.current_experiment_type == "Standard":
+        elif self.main_window.settings.experiment_type == "Standard":
             registry_file = Path("Metadata_Registries/variables_registry_Standard.json")
 
         if (
@@ -1145,29 +1106,27 @@ class ExperimentWindow(QWidget):
         if self.check_data_access() == False:
             return
 
-        if self.current_experiment_type == "BallPushing":
+        if self.main_window.settings.experiment_type == "BallPushing":
             with open(
                 "Metadata_Registries/variables_registry_BallPushing.json", "w"
             ) as f:
                 json.dump(variables_registry, f, indent=4)
-        elif self.current_experiment_type == "Standard":
+        elif self.main_window.settings.experiment_type == "Standard":
             with open("Metadata_Registries/variables_registry_Standard.json", "w") as f:
                 json.dump(variables_registry, f, indent=4)
 
         # Open the new data folder
-        self.open_data_folder(folder_path)
+        self.open_data_folder(self.folder_path)
 
     def has_unsaved_changes(self):
-        # Get the folder path from the line edit
-        folder_path = self.folder_path
 
         # If no folder path has been entered, return False
-        if not folder_path:
+        if not self.folder_path:
             return False
 
         table_style = self.table_style_selector.currentText()
         # Load the metadata from the metadata.json file
-        with open(folder_path / "metadata.json", "r") as f:
+        with open(self.folder_path / "metadata.json", "r") as f:
             metadata = json.load(f)
 
         # Create a new metadata dictionary from the data in the table

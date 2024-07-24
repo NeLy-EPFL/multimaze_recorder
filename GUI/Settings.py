@@ -89,6 +89,8 @@ class Settings:
                 return None
 
     def update_settings(self, experiment_name):
+
+        print("Updating settings...")
         # Find the experiment with the matching name
         experiment = next(
             (exp for exp in self.experiments if exp["name"] == experiment_name), None
