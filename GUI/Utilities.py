@@ -112,3 +112,185 @@ class CustomTableWidget(QTableWidget):
                 item = self.item(row, col)
                 if item:
                     item.setBackground(QColor(color))
+
+
+class Metadata:
+
+    def __init__(self, new=False):
+
+        if not new:
+            self.metadata = self.load_metadata
+
+    def create_metadata(self, table=None, table_style="arenas"):
+        # Create a new metadata dictionary
+        self.metadata = {"Variable": []}
+        if table_style == "corridors":
+            for i in range(1, 10):
+                for j in range(1, 7):
+                    self.metadata[f"Arena{i}_Corridor{j}"] = []
+        elif table_style == "arenas":
+            for i in range(1, 10):
+                self.metadata[f"Arena{i}"] = []
+
+        # If a table object is provided, use it to populate the metadata dictionary
+        if table:
+            # Update the metadata with the data from the table
+            variables = set()
+            for row in range(table.rowCount()):
+                variable_item = table.item(row, 0)
+                if variable_item:
+                    variable = variable_item.text()
+                    if variable and variable not in variables:
+                        variables.add(variable)
+                        self.metadata["Variable"].append(variable)
+
+                        for col in range(1, table.columnCount()):
+                            value_item = table.item(row, col)
+                            column_label = table.horizontalHeaderItem(col).text()
+                            if value_item:
+                                value = value_item.text()
+                                self.metadata[column_label].append(value)
+                            else:
+                                self.metadata[column_label].append("")
+
+        return self.metadata
+
+    def load_metadata(self, parent):
+        try:
+            with open(parent.folder_path, "metadata.json", "r") as file:
+                return json.load(file)
+        except FileNotFoundError:
+            print("Metadata file not found")
+            return []
+
+    def save_metadata(self, parent):
+        with open(parent.folder_path, "metadata.json", "w") as file:
+            json.dump(self.metadata, file, indent=4)
+
+    def detect_table_style(self):
+        # Check if the metadata contains keys for the "corridor" layout
+        if any(key.startswith("Arena1_Corridor") for key in self.metadata.keys()):
+            return "corridors"
+        # Check if the metadata contains keys for the "arena" layout
+        elif any(key.startswith("Arena") for key in self.metadata.keys()):
+            return "arenas"
+        # If neither layout is detected, return a default value
+        else:
+            return "arenas"
+
+
+class MetadataTemplate:
+    def __init__(self, parent):
+        self.path = parent.main_window.settings.metadata_template
+        self.variables = self.load_metadata_variables()
+
+    def update_template(self, parent):
+        metadata_template_path = Path(parent.main_window.settings.metadata_template)
+        standard_template_path = Path(
+            "Metadata_Templates/variables_registry_Standard.json"
+        )
+
+        if metadata_template_path != standard_template_path:
+            metadata_template = self.load_metadata_template(self.path)
+            if metadata_template is None:
+                return
+
+            if any(
+                variable not in metadata_template
+                for variable in parent.metadata.metadata["Variable"]
+            ):
+                reply = QMessageBox.question(
+                    parent,
+                    "Update Metadata Template",
+                    "New variables found in the metadata. Update the current metadata template?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes,
+                )
+
+                if reply == QMessageBox.StandardButton.Yes:
+                    self.update_existing_template(metadata_template, self.path)
+                else:
+                    self.create_and_save_new_template()
+            else:
+                print("Metadata template already up to date.")
+        else:
+            reply = QMessageBox.question(
+                parent,
+                "Create New Metadata Template",
+                "Would you like to create a new metadata template with the current variables?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes,
+            )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                self.create_and_save_new_template()
+
+    def load_metadata_template(self, path):
+        try:
+            with open(path, "r") as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            print(f"Error loading metadata template: {e}")
+            return None
+
+    def update_existing_template(self, metadata_template, path):
+        for variable in self.metadata.metadata["Variable"]:
+            if variable not in metadata_template:
+                metadata_template.append(variable)
+        self.save_metadata_template(path, metadata_template)
+        print(f"Saving updated metadata template to {path}")
+
+    def create_and_save_new_template(self, parent):
+        template_name, ok = QInputDialog.getText(
+            parent, "New Metadata Template", "Enter new metadata template name:"
+        )
+        if not ok:
+            return
+
+        metadata_template = parent.main_window.settings.metadata_template
+        new_template_path = Path(f"Metadata_Templates/{template_name}.json")
+        self.save_metadata_template(new_template_path, metadata_template)
+        parent.main_window.settings.metadata_template = str(new_template_path)
+
+        reply = QMessageBox.question(
+            parent,
+            "Set as Default Metadata Template",
+            "Would you like to set this new metadata template as the default for this experiment?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.update_experiment_registry(new_template_path)
+
+        self.reload_metadata_templates()
+
+    def update_experiment_registry(self, new_template_path):
+        current_registry = self.main_window.settings.experiments
+        current_registry[self.experiment_type_selector.currentIndex()]["metadata"] = (
+            str(new_template_path)
+        )
+        self.main_window.settings.save_experiments()
+
+    def reload_metadata_templates(self):
+        metadata_folder = Path("Metadata_Registries")
+        metadata_list = [f.stem for f in metadata_folder.glob("*.json")]
+        self.metadata_selector.clear()
+        self.metadata_selector.addItems(metadata_list)
+        self.metadata_selector.addItem("New Metadata")
+
+    def save_metadata_template(self, path, metadata_template):
+        try:
+            with open(path, "w") as f:
+                json.dump(metadata_template, f, indent=4)
+        except IOError as e:
+            print(f"Error saving metadata template: {e}")
+
+    def load_metadata_variables(self):
+        # First load the template
+        metadata_template = self.load_metadata_template(self.path)
+
+        # Then make a list of the variables
+        variables = metadata_template["Variable"]
+
+        return variables

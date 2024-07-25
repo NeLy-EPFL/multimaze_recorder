@@ -2,7 +2,6 @@ from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 
-from Utilities import CustomTableWidget
 from Settings import Settings
 from ExperimentWindow import ExperimentWindow
 from ProcessingWindow import ProcessingWindow
