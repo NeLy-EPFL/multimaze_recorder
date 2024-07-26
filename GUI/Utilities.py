@@ -121,6 +121,9 @@ class Metadata:
         if not new:
             self.metadata = self.load_metadata(parent)
 
+        else:
+            self.metadata = self.create_metadata()
+
     def create_metadata(self, table=None, table_style="arenas"):
         # Create a new metadata dictionary
         self.metadata = {"Variable": []}
@@ -164,7 +167,7 @@ class Metadata:
             return []
 
     def save_metadata(self, parent):
-        with open(parent.folder_path, "metadata.json", "w") as file:
+        with open(parent.folder_path / "metadata.json", "w") as file:
             json.dump(self.metadata, file, indent=4)
 
     def detect_table_style(self):

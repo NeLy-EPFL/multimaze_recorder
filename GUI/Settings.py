@@ -5,13 +5,21 @@ from PyQt6.QtCore import *
 from pathlib import Path
 import json
 
+import platform
+
 
 class Settings:
     def __init__(self):
 
         self.user = "MD"
 
-        self.datafolder = Path(f"/mnt/upramdya_data/{self.user}/")
+        # Check if the machine is a mac or linux
+
+        if platform.system() == "Darwin":
+            self.datafolder = Path(f"/Volumes/upramdya/data/{self.user}/")
+
+        elif platform.system() == "Linux":
+            self.datafolder = Path(f"/mnt/upramdya_data/{self.user}/")
 
         self.experiments = self.load_experiments()
 

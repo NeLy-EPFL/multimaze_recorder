@@ -113,6 +113,8 @@ class ExperimentWindow(QWidget):
 
         self.metadata_template = MetadataTemplate(self)
 
+        self.metadata = None
+
         # self.main_window.settings = main_window.settings
 
         self.signals = ExperimentWindowSignals()
@@ -219,17 +221,6 @@ class ExperimentWindow(QWidget):
         # Initialize the folder_open attribute
         self.folder_open = False
 
-        # Mac Datapath
-        if platform.system() == "Darwin":
-            self.DataPath = Path("/Volumes/upramdya/data/MD")
-        # Linux Datapath
-        if platform.system() == "Linux":
-            self.DataPath = Path("/mnt/upramdya_data/MD/")
-            self.local_path = Path("/home/matthias/Videos/")
-            self.experiment_path = (
-                self.DataPath / self.experiment_type_selector.currentText()
-            )
-
         # Check if Arduino is available and enable hardware triggering if so
         if os.path.exists("/dev/ttyACM0"):
             self.HardwareTrigger_checkbox.setEnabled(True)
@@ -284,13 +275,13 @@ class ExperimentWindow(QWidget):
             # Check if metadata was provided
             if self.metadata:
                 # Fill the "Variable" column with the values from the "Variable" key in the metadata
-                for row, value in enumerate(self.metadata["Variable"]):
+                for row, value in enumerate(self.metadata.metadata["Variable"]):
                     value_item = QTableWidgetItem(value)
                     table.setItem(row, 0, value_item)
 
                 # Fill the other columns with the values from the other keys in the metadata
                 col = 1
-                for variable, values in self.metadata.items():
+                for variable, values in self.metadata.metadata.items():
                     if variable != "Variable":
                         for row, value in enumerate(values):
                             value_item = QTableWidgetItem(value)
@@ -315,9 +306,9 @@ class ExperimentWindow(QWidget):
                     self.main_window.settings.metadata_template = []
 
                 # Check if any known variables are missing from the table and add them if necessary
-                row = len(self.metadata["Variable"])
+                row = len(self.metadata.metadata["Variable"])
                 for variable in self.main_window.settings.metadata_template:
-                    if variable not in self.metadata["Variable"]:
+                    if variable not in self.metadata.metadata["Variable"]:
                         table.insertRow(row)
                         value_item = QTableWidgetItem(variable)
                         table.setItem(row, 0, value_item)
@@ -519,7 +510,7 @@ class ExperimentWindow(QWidget):
             self.live_stream_process.terminate()
 
     def check_data_access(self):
-        if not self.DataPath.exists():
+        if not self.main_window.settings.datafolder.exists():
             # Display an error message and return
             QMessageBox.critical(
                 self,
@@ -643,7 +634,10 @@ class ExperimentWindow(QWidget):
                 self,
                 "Choose Experiment Type",
                 "Choose an experiment type for the new data folder:",
-                ["BallPushing", "Standard"],
+                [
+                    experiment["name"]
+                    for experiment in self.main_window.settings.experiments
+                ],
                 0,
                 False,
             )
@@ -691,7 +685,8 @@ class ExperimentWindow(QWidget):
 
             table_style = self.table_style_selector.currentText()
 
-        self.folder_path = self.DataPath / folder_name
+        self.folder_path = self.main_window.settings.datafolder / folder_name
+        # TODO : Fix it to add the experiment type folder to the path before the folder name
         # If the folder already exists, show a message box asking if the user wants to open the existing folder or choose a different name
         while self.folder_path.exists():
             reply = QMessageBox.question(
@@ -713,7 +708,7 @@ class ExperimentWindow(QWidget):
             return
         # Create the data folder with the specified name
         if ok and folder_name:
-            self.folder_path = self.DataPath / folder_name
+            self.folder_path = self.main_window.settings.datafolder / folder_name
             self.folder_path.mkdir(parents=True, exist_ok=True)
 
             # Update the folder line edit with the full path to the new data folder
@@ -729,26 +724,28 @@ class ExperimentWindow(QWidget):
 
             self.metadata = Metadata(self, new=True)
 
-            self.metadata = self.metadata.create_metadata(
-                table=self.table, table_style=table_style
-            )
+            # self.metadata = self.metadata.create_metadata(
+            #     table=self.table, table_style=table_style
+            # )
 
             if self.check_data_access() == False:
                 return
 
-            self.metadata.save_metadata()
+            self.metadata.save_metadata(self)
 
             # Open the new data folder
             self.open_data_folder(self.folder_path)
 
     def open_data_folder(self, folder_path=None):
-        if self.folder_path and str(self.DataPath) not in str(folder_path):
+        if self.folder_path and str(self.main_window.settings.datafolder) not in str(
+            folder_path
+        ):
             return
 
         # Prompt the user to select a folder if no folder path was provided
         if not folder_path:
             folder_path = QFileDialog.getExistingDirectory(
-                self, "Open Data Folder", str(self.DataPath)
+                self, "Open Data Folder", str(self.main_window.settings.datafolder)
             )
 
         # Check if a valid folder was selected
@@ -825,7 +822,7 @@ class ExperimentWindow(QWidget):
 
         # Create a new table using the loaded metadata
         table = self.create_table(
-            self.metadata, table_style=self.table_style_selector.currentText()
+            self.metadata.metadata, table_style=self.table_style_selector.currentText()
         )
 
         # Get the layout of the central widget
@@ -928,14 +925,14 @@ class ExperimentWindow(QWidget):
                 self.metadata = self.create_metadata(table=self.table)
 
                 # Call the create_data_folder method to create a new data folder with the given metadata
-                self.create_data_folder(self.metadata)
+                self.create_data_folder(self.metadata.metadata)
 
                 # Get the new folder path from the line edit
                 self.folder_path = Path(self.folder_lineedit.text())
 
             else:
                 # Use the text from the folder line edit as the folder name
-                self.folder_path = self.DataPath / folder_name
+                self.folder_path = self.main_window.settings.datafolder / folder_name
 
                 self.create_data_folder()
                 self.metadata = self.create_metadata(table=self.table)
@@ -943,7 +940,7 @@ class ExperimentWindow(QWidget):
                 # Save the updated metadata
                 if self.check_data_access() == False:
                     return
-                self.metadata.save_metadata()
+                self.metadata.save_metadata(self)
 
         else:
             self.metadata = self.create_metadata(
@@ -953,7 +950,7 @@ class ExperimentWindow(QWidget):
             # Save the updated metadata
             if self.check_data_access() == False:
                 return
-            self.metadata.save_metadata()
+            self.metadata.save_metadata(self)
 
         self.metadata_template.update_template()
 
@@ -967,12 +964,11 @@ class ExperimentWindow(QWidget):
             return False
 
         table_style = self.table_style_selector.currentText()
-        # Load the metadata from the metadata.json file
-        with open(self.folder_path / "metadata.json", "r") as f:
-            self.metadata = json.load(f)
 
         # Create a new metadata dictionary from the data in the table
-        new_metadata = self.create_metadata(self.table, table_style=table_style)
+        new_metadata = self.metadata.create_metadata(
+            self.table, table_style=table_style
+        )
 
         # Compare the loaded metadata with the new metadata
-        return self.metadata != new_metadata
+        return self.metadata.metadata != new_metadata

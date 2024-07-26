@@ -6,6 +6,7 @@ from Settings import Settings
 from ExperimentWindow import ExperimentWindow
 from ProcessingWindow import ProcessingWindow
 
+import platform
 import sys
 from pathlib import Path
 
@@ -61,11 +62,11 @@ class MainWindow(QMainWindow):
 
                 self.online = False
 
+        # Create the Windows
+
         # Initialise the settings
 
         self.settings = Settings()
-
-        # Create the Windows
 
         self.setWindowTitle("Multimaze Recorder")
         # Set the default size of the window
