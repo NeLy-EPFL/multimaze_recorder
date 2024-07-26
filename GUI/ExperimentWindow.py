@@ -158,7 +158,7 @@ class ExperimentWindow(QWidget):
         self.table_style_selector.currentIndexChanged.connect(self.update_table_style)
 
         # Load existing metadata registries
-        metadata_folder = Path("Metadata_Registries")
+        metadata_folder = Path("Metadata_Template")
         metadata_list = [f.stem for f in metadata_folder.glob("*.json")]
 
         self.metadata_selector = QComboBox()
@@ -727,7 +727,7 @@ class ExperimentWindow(QWidget):
 
             # Create experiment.json in the main folder
 
-            self.metadata = Metadata(new=True)
+            self.metadata = Metadata(self, new=True)
 
             self.metadata = self.metadata.create_metadata(
                 table=self.table, table_style=table_style
@@ -813,7 +813,7 @@ class ExperimentWindow(QWidget):
                     json.dump(self.metadata, f, indent=4)
 
         # Load the metadata from the selected folder
-        self.metadata = Metadata()
+        self.metadata = Metadata(self)
         # with open(self.folder_path / "metadata.json", "r") as f:
         #     metadata = json.load(f)
 

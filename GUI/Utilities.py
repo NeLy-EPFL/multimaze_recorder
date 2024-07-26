@@ -116,10 +116,10 @@ class CustomTableWidget(QTableWidget):
 
 class Metadata:
 
-    def __init__(self, new=False):
+    def __init__(self, parent, new=False):
 
         if not new:
-            self.metadata = self.load_metadata
+            self.metadata = self.load_metadata(parent)
 
     def create_metadata(self, table=None, table_style="arenas"):
         # Create a new metadata dictionary
@@ -157,7 +157,7 @@ class Metadata:
 
     def load_metadata(self, parent):
         try:
-            with open(parent.folder_path, "metadata.json", "r") as file:
+            with open(parent.folder_path / "metadata.json", "r") as file:
                 return json.load(file)
         except FileNotFoundError:
             print("Metadata file not found")
@@ -168,11 +168,15 @@ class Metadata:
             json.dump(self.metadata, file, indent=4)
 
     def detect_table_style(self):
+
+        metadata = self.metadata
+        print(f"Detecting table style for metadata: {metadata}")
+
         # Check if the metadata contains keys for the "corridor" layout
-        if any(key.startswith("Arena1_Corridor") for key in self.metadata.keys()):
+        if any(key.startswith("Arena1_Corridor") for key in metadata.keys()):
             return "corridors"
         # Check if the metadata contains keys for the "arena" layout
-        elif any(key.startswith("Arena") for key in self.metadata.keys()):
+        elif any(key.startswith("Arena") for key in metadata.keys()):
             return "arenas"
         # If neither layout is detected, return a default value
         else:
@@ -181,7 +185,10 @@ class Metadata:
 
 class MetadataTemplate:
     def __init__(self, parent):
+
         self.path = parent.main_window.settings.metadata_template
+        print(f"Initialising Metadata Template with path {self.path}")
+
         self.variables = self.load_metadata_variables()
 
     def update_template(self, parent):
@@ -273,7 +280,7 @@ class MetadataTemplate:
         self.main_window.settings.save_experiments()
 
     def reload_metadata_templates(self):
-        metadata_folder = Path("Metadata_Registries")
+        metadata_folder = Path("Metadata_Templates")
         metadata_list = [f.stem for f in metadata_folder.glob("*.json")]
         self.metadata_selector.clear()
         self.metadata_selector.addItems(metadata_list)
@@ -290,7 +297,4 @@ class MetadataTemplate:
         # First load the template
         metadata_template = self.load_metadata_template(self.path)
 
-        # Then make a list of the variables
-        variables = metadata_template["Variable"]
-
-        return variables
+        return metadata_template
