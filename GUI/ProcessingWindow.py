@@ -128,7 +128,7 @@ class ProcessingWindow(QWidget):
 
     def update_remote_path(self, new_path):
         # Ensure new_path is a Path object
-        self.remote_path = self.main_window.datafolder / Path(new_path)
+        self.remote_path = self.main_window.settings.datafolder / Path(new_path)
         print(f"Updating remote path to {self.remote_path}")
         # Update the label to reflect the new path
         self.data_path_label.setText(f"Lab server videos: ({self.remote_path})")

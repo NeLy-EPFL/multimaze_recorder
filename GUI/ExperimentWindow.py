@@ -202,7 +202,9 @@ class ExperimentWindow(QWidget):
         layout.addLayout(hbox_style)
 
         # Create an empty table
-        self.table = self.create_table(init=True)
+        self.table = self.create_table(
+            # init=True
+        )
 
         # Add the table to the layout
         layout.addWidget(self.table)
@@ -247,106 +249,140 @@ class ExperimentWindow(QWidget):
             A table widget containing the metadata
         """
         # Create a table widget to display the data
-        table = CustomTableWidget()
+        table = CustomTableWidget(self.table_style_selector, self.layout())
 
-        if table_style == "corridors":
-            column_count = 1 + 9 * 6
-            column_labels = ["Variable"]
-            for i in range(1, 10):
-                for j in range(1, 7):
-                    column_labels.append(f"Arena{i}_Corridor{j}")
-        elif table_style == "arenas":
-            column_count = 1 + 9
-            column_labels = ["Variable"]
-            for i in range(1, 10):
-                column_labels.append(f"Arena{i}")
-        table.setColumnCount(column_count)
-        table.setHorizontalHeaderLabels(column_labels)
-
-        # Add empty rows and items to the table
-        for row in range(10):
-            table.insertRow(row)
-            for col in range(table.columnCount()):
-                item = QTableWidgetItem("")
-                table.setItem(row, col, item)
+        # Setup the table structure
+        table.setup_table(table_style)
 
         if not init:
+            # Set the metadata if provided
+            if metadata:
+                table.set_metadata(metadata)
 
-            # Check if metadata was provided
-            if self.metadata:
-                # Fill the "Variable" column with the values from the "Variable" key in the metadata
-                for row, value in enumerate(self.metadata.metadata["Variable"]):
-                    value_item = QTableWidgetItem(value)
-                    table.setItem(row, 0, value_item)
-
-                # Fill the other columns with the values from the other keys in the metadata
-                col = 1
-                for variable, values in self.metadata.metadata.items():
-                    if variable != "Variable":
-                        for row, value in enumerate(values):
-                            value_item = QTableWidgetItem(value)
-                            table.setItem(row, col, value_item)
-                        col += 1
-
-                    else:
-                        print("No metadata file found for this experiment type.")
-                        # don't load any pre-existing metadata
-                        registry_file = None
-
-                if (
-                    registry_file
-                    and registry_file.exists()
-                    and registry_file.stat().st_size > 0
-                ):
-                    # Read the list of known variables from the registry file
-                    with open(registry_file, "r") as f:
-                        self.main_window.metadata_template = json.load(f)
-                else:
-                    # Create a new list to store the known variables
-                    self.main_window.settings.metadata_template = []
-
-                # Check if any known variables are missing from the table and add them if necessary
-                row = len(self.metadata.metadata["Variable"])
-                for variable in self.main_window.settings.metadata_template:
-                    if variable not in self.metadata.metadata["Variable"]:
-                        table.insertRow(row)
-                        value_item = QTableWidgetItem(variable)
-                        table.setItem(row, 0, value_item)
-                        # Set the values of the other columns for this row
-                        for col in range(1, table.columnCount()):
-                            value_item = QTableWidgetItem("")
-                            table.setItem(row, col, value_item)
-                        row += 1
-
-            else:
-
-                # Fill the "Variable" column with the values from the template
-                for row, value in enumerate(self.metadata_template.variables):
-                    value_item = QTableWidgetItem(value)
-                    table.setItem(row, 0, value_item)
-
-            print(
-                f"Creating table with {self.main_window.settings.experiment_type} and {table_style} style. Using registry {self.main_window.settings.metadata_template}."
-            )
-        # Resize the rows and columns to fit their contents
-        table.resizeRowsToContents()
-        table.resizeColumnsToContents()
-
-        # Set a smaller font size for the table
-        font = table.font()
-        font.setPointSize(10)
-        table.setFont(font)
-
-        # Set a larger minimum size for the table widget
-        table.setMinimumSize(800, 600)
-
-        # Add empty rows to the table
-        table.add_empty_rows(10)
-
-        # Set the background color of the cells
-        table.set_cell_colors()
+        # Finalize the table setup
+        table.finalize_table()
 
         return table
+
+    # def create_table(
+    #     self, metadata=None, table_style="arenas", experiment_type=None, init=False
+    # ):
+    #     """
+    #     Create a new table widget using the provided metadata
+
+    #     Parameters
+    #     ----------
+    #     metadata : dict, optional
+    #         A dictionary containing the metadata for the table, by default None
+    #     table_style : str, optional
+    #         The layout style of the table, by default "arenas"
+
+    #     Returns
+    #     -------
+    #     QTableWidget
+    #         A table widget containing the metadata
+    #     """
+    #     # Create a table widget to display the data
+    #     table = CustomTableWidget()
+
+    #     if table_style == "corridors":
+    #         column_count = 1 + 9 * 6
+    #         column_labels = ["Variable"]
+    #         for i in range(1, 10):
+    #             for j in range(1, 7):
+    #                 column_labels.append(f"Arena{i}_Corridor{j}")
+    #     elif table_style == "arenas":
+    #         column_count = 1 + 9
+    #         column_labels = ["Variable"]
+    #         for i in range(1, 10):
+    #             column_labels.append(f"Arena{i}")
+    #     table.setColumnCount(column_count)
+    #     table.setHorizontalHeaderLabels(column_labels)
+
+    #     # Add empty rows and items to the table
+    #     for row in range(10):
+    #         table.insertRow(row)
+    #         for col in range(table.columnCount()):
+    #             item = QTableWidgetItem("")
+    #             table.setItem(row, col, item)
+
+    #     if not init:
+
+    #         # Check if metadata was provided
+    #         if self.metadata:
+    #             # Fill the "Variable" column with the values from the "Variable" key in the metadata
+    #             for row, value in enumerate(self.metadata.metadata["Variable"]):
+    #                 value_item = QTableWidgetItem(value)
+    #                 table.setItem(row, 0, value_item)
+
+    #             # Fill the other columns with the values from the other keys in the metadata
+    #             col = 1
+    #             for variable, values in self.metadata.metadata.items():
+    #                 if variable != "Variable":
+    #                     for row, value in enumerate(values):
+    #                         value_item = QTableWidgetItem(value)
+    #                         table.setItem(row, col, value_item)
+    #                     col += 1
+
+    #                 else:
+    #                     print("No metadata file found for this experiment type.")
+    #                     # don't load any pre-existing metadata
+    #                     registry_file = None
+
+    #             if (
+    #                 registry_file
+    #                 and registry_file.exists()
+    #                 and registry_file.stat().st_size > 0
+    #             ):
+    #                 # Read the list of known variables from the registry file
+    #                 with open(registry_file, "r") as f:
+    #                     self.main_window.metadata_template = json.load(f)
+    #             else:
+    #                 # Create a new list to store the known variables
+    #                 self.main_window.settings.metadata_template = []
+
+    #             # Check if any known variables are missing from the table and add them if necessary
+    #             row = len(self.metadata.metadata["Variable"])
+    #             for variable in self.main_window.settings.metadata_template:
+    #                 if variable not in self.metadata.metadata["Variable"]:
+    #                     table.insertRow(row)
+    #                     value_item = QTableWidgetItem(variable)
+    #                     table.setItem(row, 0, value_item)
+    #                     # Set the values of the other columns for this row
+    #                     for col in range(1, table.columnCount()):
+    #                         value_item = QTableWidgetItem("")
+    #                         table.setItem(row, col, value_item)
+    #                     row += 1
+
+    #         else:
+
+    #             # Fill the "Variable" column with the values from the template
+    #             for row, value in enumerate(self.metadata_template.variables):
+    #                 value_item = QTableWidgetItem(value)
+    #                 table.setItem(row, 0, value_item)
+
+    #         print(
+    #             f"Creating table with {self.main_window.settings.experiment_type} and {table_style} style. Using registry {self.main_window.settings.metadata_template}."
+    #         )
+    #     # Resize the rows and columns to fit their contents
+    #     table.resizeRowsToContents()
+    #     table.resizeColumnsToContents()
+
+    #     # Set a smaller font size for the table
+    #     font = table.font()
+    #     font.setPointSize(10)
+    #     table.setFont(font)
+
+    #     # Set a larger minimum size for the table widget
+    #     table.setMinimumSize(800, 600)
+
+    #     # Add empty rows to the table
+    #     table.add_empty_rows(10)
+
+    #     # Set the background color of the cells
+    #     table.set_cell_colors()
+
+    #     return table
 
     def update_table_style(self, index):
         # Get the selected layout from the combo box
@@ -439,6 +475,10 @@ class ExperimentWindow(QWidget):
         # Check if a folder is open
         if self.folder_open == False:
             self.create_data_folder()
+            # Check if the data folder was created successfully
+            if not self.folder_path:
+                return
+
         else:
             self.save_data()
 
@@ -620,7 +660,19 @@ class ExperimentWindow(QWidget):
 
     def create_data_folder(self, metadata=None):
 
+        # First check if the GUI has access to the data folder
+        if self.check_data_access() == False:
+            # Send a warning message on the GUI
+
+            QMessageBox.information(
+                self,
+                "Information",
+                "Data folder is not accessible. The folder couldn't be created.",
+            )
+
+            return
         # Check if a folder is already open
+
         if self.folder_open:
             # Prompt the user to enter a new folder name
             folder_name, ok = QInputDialog.getText(
@@ -647,7 +699,8 @@ class ExperimentWindow(QWidget):
             self.main_window.settings.experiment_type = experiment_type
             index = self.experiment_type_selector.findText(experiment_type)
 
-            # If the experiment type is Standard, skip the table style selection and use the "arenas" layout
+            # If the experiment type is BallPushing, prompt the user to choose a table style
+            # If not, set the table style to "arenas" which is the default
 
             if experiment_type == "BallPushing":
 
@@ -671,6 +724,8 @@ class ExperimentWindow(QWidget):
             if not ok:
                 return
 
+        # If no folder is open:
+
         else:
             # If there is a folder name in the lineedit, use it, else prompt the user to enter a folder name
             if self.folder_lineedit.text():
@@ -685,8 +740,8 @@ class ExperimentWindow(QWidget):
 
             table_style = self.table_style_selector.currentText()
 
-        self.folder_path = self.main_window.settings.datafolder / folder_name
-        # TODO : Fix it to add the experiment type folder to the path before the folder name
+        self.folder_path = self.main_window.settings.experiment_path / folder_name
+
         # If the folder already exists, show a message box asking if the user wants to open the existing folder or choose a different name
         while self.folder_path.exists():
             reply = QMessageBox.question(
@@ -704,11 +759,9 @@ class ExperimentWindow(QWidget):
             else:
                 return
 
-        if self.check_data_access() == False:
-            return
         # Create the data folder with the specified name
         if ok and folder_name:
-            self.folder_path = self.main_window.settings.datafolder / folder_name
+            self.folder_path = self.main_window.settings.experiment_path / folder_name
             self.folder_path.mkdir(parents=True, exist_ok=True)
 
             # Update the folder line edit with the full path to the new data folder
@@ -728,15 +781,12 @@ class ExperimentWindow(QWidget):
             #     table=self.table, table_style=table_style
             # )
 
-            if self.check_data_access() == False:
-                return
-
             self.metadata.save_metadata(self)
 
             # Open the new data folder
             self.open_data_folder(self.folder_path)
 
-    def open_data_folder(self, folder_path=None):
+    def open_data_folder(self, folder_path=None, recorded=False):
         if self.folder_path and str(self.main_window.settings.datafolder) not in str(
             folder_path
         ):
@@ -866,6 +916,16 @@ class ExperimentWindow(QWidget):
             processed = True
 
         # TODO: use the ssh / local check to check if the local machine has an experiment recorder with this name.
+        # Connect to experimental machine and check if the folder contains images
+        # Create a ssh command to go the the local_path and check if there is a folder with the same name as the folder name and if it contains images
+        # If it does, set images to True
+
+        # if self.main_window.local:
+        #     # Check if the folder contains images
+        #     images = self.check_images(self.folder_path)
+        # else:
+        #     # Check if the folder contains images
+        #     images = False
 
         if videos or images:
             # Disable the duration and fps spinboxes
@@ -914,6 +974,14 @@ class ExperimentWindow(QWidget):
         if self.tab_widget.currentIndex() != 0:
             self.tab_widget.setCurrentIndex(0)
 
+    def check_images(self, folder_path):
+        # Check if the selected folder and subfolders contains any images
+
+        if not folder_path.glob("*.jpg"):
+            return False
+        else:
+            return True
+
     def save_data(self):
 
         # If no folder path has been entered, check if the folder line edit is empty
@@ -932,7 +1000,9 @@ class ExperimentWindow(QWidget):
 
             else:
                 # Use the text from the folder line edit as the folder name
-                self.folder_path = self.main_window.settings.datafolder / folder_name
+                self.folder_path = (
+                    self.main_window.settings.experiment_path / folder_name
+                )
 
                 self.create_data_folder()
                 self.metadata = self.create_metadata(table=self.table)

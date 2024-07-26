@@ -13,6 +13,8 @@ class Settings:
 
         self.user = "MD"
 
+        self.local_path = Path("/home/matthias/Videos/")
+
         # Check if the machine is a mac or linux
 
         if platform.system() == "Darwin":

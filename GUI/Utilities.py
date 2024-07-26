@@ -16,6 +16,63 @@ class CustomTableWidget(QTableWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    def setup_table(self, table_style="arenas"):
+        if table_style == "corridors":
+            column_count = 1 + 9 * 6
+            column_labels = ["Variable"]
+            for i in range(1, 10):
+                for j in range(1, 7):
+                    column_labels.append(f"Arena{i}_Corridor{j}")
+        elif table_style == "arenas":
+            column_count = 1 + 9
+            column_labels = ["Variable"]
+            for i in range(1, 10):
+                column_labels.append(f"Arena{i}")
+        self.setColumnCount(column_count)
+        self.setHorizontalHeaderLabels(column_labels)
+
+        # Add empty rows and items to the table
+        for row in range(10):
+            self.insertRow(row)
+            for col in range(self.columnCount()):
+                item = QTableWidgetItem("")
+                self.setItem(row, col, item)
+
+    def set_metadata(self, metadata):
+        if metadata:
+            # Fill the "Variable" column with the values from the "Variable" key in the metadata
+            for row, value in enumerate(metadata["Variable"]):
+                value_item = QTableWidgetItem(value)
+                self.setItem(row, 0, value_item)
+
+            # Fill the other columns with the values from the other keys in the metadata
+            col = 1
+            for variable, values in metadata.items():
+                if variable != "Variable":
+                    for row, value in enumerate(values):
+                        value_item = QTableWidgetItem(value)
+                        self.setItem(row, col, value_item)
+                    col += 1
+
+    def finalize_table(self):
+        # Resize the rows and columns to fit their contents
+        self.resizeRowsToContents()
+        self.resizeColumnsToContents()
+
+        # Set a smaller font size for the table
+        font = self.font()
+        font.setPointSize(10)
+        self.setFont(font)
+
+        # Set a larger minimum size for the table widget
+        self.setMinimumSize(800, 600)
+
+        # Add empty rows to the table
+        self.add_empty_rows(10)
+
+        # Set the background color of the cells
+        self.set_cell_colors()
+
     def contextMenuEvent(self, event):
         # Get the row and column that was clicked
         row = self.rowAt(event.y())
@@ -113,6 +170,29 @@ class CustomTableWidget(QTableWidget):
                 if item:
                     item.setBackground(QColor(color))
 
+    def update_table_style(self, index):
+        # Get the selected layout from the combo box
+        table_style = self.table_style_selector.itemText(index)
+        # Update the table and metadata with the new layout
+
+        self.create_metadata(table_style=table_style)
+        self.create_table(table_style=table_style)
+
+        layout = self.layout
+
+        if not self.folder_open:
+            table = self.create_table(table_style=table_style)
+            # Remove the existing table from the layout (if any)
+            if self.table:
+                layout.removeWidget(self.table)
+                self.table.deleteLater()
+
+            # Add the new table to the layout
+            layout.addWidget(table)
+
+            # Store a reference to the new table in an attribute
+            self.table = table
+
 
 class Metadata:
 
@@ -167,6 +247,8 @@ class Metadata:
             return []
 
     def save_metadata(self, parent):
+        # TODO: improve the save_metadata method to correctly save the current table and not an empty one
+
         with open(parent.folder_path / "metadata.json", "w") as file:
             json.dump(self.metadata, file, indent=4)
 
