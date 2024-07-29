@@ -2,7 +2,7 @@ from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 
-from Utilities import CustomTableWidget, Metadata, MetadataTemplate
+from Utilities import CustomTableWidget, Metadata
 
 import sys
 from pathlib import Path
@@ -160,15 +160,17 @@ class ExperimentWindow(QWidget):
         )
 
         # Load existing metadata registries
-        metadata_folder = Path("Metadata_Template")
-        metadata_list = [f.stem for f in metadata_folder.glob("*.json")]
+        self.metadata_folder = Path("Metadata_Templates")
+        metadata_list = [f.stem for f in self.metadata_folder.glob("*.json")]
 
-        self.metadata_selector = QComboBox()
+        self.template_selector = QComboBox()
         # Add the available metadata registries to the combo box
-        self.metadata_selector.addItems(metadata_list)
 
-        self.metadata_selector.currentIndexChanged.connect(self.select_metadata)
-        # TODO: find out why changing the metadata doesn't update the table.
+        for template in metadata_list:
+            self.template_selector.addItem(template)
+        self.template_selector.addItem("New template")
+
+        self.template_selector.currentIndexChanged.connect(self.select_metadata)
 
         # Create layout
         layout = QVBoxLayout()
@@ -195,7 +197,7 @@ class ExperimentWindow(QWidget):
         # layout.addWidget(self.stop_button)
 
         hbox_style.addWidget(QLabel("Metadata:"))
-        hbox_style.addWidget(self.metadata_selector)
+        hbox_style.addWidget(self.template_selector)
 
         layout.addLayout(hbox_style)
 
@@ -242,23 +244,10 @@ class ExperimentWindow(QWidget):
             # Reset the folder_open attribute
             self.folder_open = False
 
-            # Get the layout of the central widget
-            layout = self.layout()
+            # Update Table
+            self.metadata.load_template(self)
 
-            table = self.create_table()
-
-            # Remove the existing table from the layout (if any)
-            if self.table:
-                layout.removeWidget(self.table)
-                self.table.deleteLater()
-
-            # Store a reference to the new table in an attribute
-            self.table = table
-
-            layout.removeWidget(self.info_panel)
-
-            # Add the new table to the layout
-            layout.addWidget(table)
+            self.table.set_metadata(self)
 
             # Clear the folder line edit
             self.folder_lineedit.clear()
@@ -444,19 +433,57 @@ class ExperimentWindow(QWidget):
         # Update Table
         self.metadata.load_template(self)
 
+        # Set the metadata selector to the default template for this experiment
+        self.template_selector.setCurrentIndex(
+            self.template_selector.findText(
+                self.main_window.settings.metadata_template.stem
+            )
+        )
+
+        print(f"Selected template: {self.main_window.settings.metadata_template.name}")
+
         self.table.set_metadata(self)
 
         print(f"Selected experiment type: {self.main_window.settings.experiment_type}")
 
     def select_metadata(self, index):
-        # Get the selected metadata from the combo box
-        registry = self.metadata_selector.currentText()
 
-        self.main_window.settings.experiment_type = registry
+        if self.template_selector.currentText() == "New template":
+            # Prompt the user to enter a new template name
+            template_name, ok = QInputDialog.getText(
+                self, "New Metadata Template", "Enter new template name:"
+            )
+            if not ok:
+                return
 
-        self.metadata.load_template(registry)
+            # Create a new metadata template with the specified name
+            registry = self.metadata_folder / f"{template_name}.json"
+            self.metadata.create_template(self, registry)
 
-        self.table.set_metadata(self)
+            # Add the new template to the combo box
+            self.template_selector.addItem(template_name)
+            # Set the current index of the template selector combo box
+            self.template_selector.setCurrentIndex(
+                self.template_selector.findText(template_name)
+            )
+
+            # Update the metadata with the new template
+            self.metadata.load_template(self, registry)
+
+            self.table.set_metadata(self)
+
+            return
+        else:
+            # Get the selected metadata from the combo box
+            registry = (
+                self.metadata_folder / f"{self.template_selector.currentText()}.json"
+            )
+
+            # self.main_window.settings.experiment_type = registry
+
+            self.metadata.load_template(self, registry)
+
+            self.table.set_metadata(self)
 
     def create_data_folder(self):
 
@@ -742,6 +769,7 @@ class ExperimentWindow(QWidget):
         self.folder_lineedit.setDisabled(True)
         self.table_style_selector.setDisabled(True)
         self.experiment_type_selector.setDisabled(True)
+        self.template_selector.setDisabled(True)
 
         if self.tab_widget.currentIndex() != 0:
             self.tab_widget.setCurrentIndex(0)
@@ -777,16 +805,18 @@ class ExperimentWindow(QWidget):
 
                 self.create_data_folder()
 
-                # Save the updated metadata
-                if self.check_data_access() == False:
-                    return
-                self.metadata.save_metadata(self)
+            # Save the updated metadata
+            if self.check_data_access() == False:
+                return
+
+            self.metadata.save_metadata(self)
 
         else:
 
             # Save the updated metadata
             if self.check_data_access() == False:
                 return
+
             self.metadata.save_metadata(self)
 
         # self.metadata_template.update_template()
@@ -800,12 +830,8 @@ class ExperimentWindow(QWidget):
         if not self.folder_path:
             return False
 
-        table_style = self.table_style_selector.currentText()
-
-        # Create a new metadata dictionary from the data in the table
-        new_metadata = self.metadata.create_metadata(
-            self.table, table_style=table_style
-        )
+        # Load the metadata from the selected folder
+        saved_metadata = self.metadata.load_metadata(self)
 
         # Compare the loaded metadata with the new metadata
-        return self.metadata != new_metadata
+        return self.metadata != saved_metadata
