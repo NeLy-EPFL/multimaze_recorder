@@ -103,6 +103,9 @@ class MainWindow(QMainWindow):
         self.experiment_window.signals.experiment_typeChanged.connect(
             self.refresh_settings
         )
+        
+        self.experiment_window.signals.folder_created.connect(
+            self.processing_window.populate_folder_lists)
 
         # TODO: Create a terminal emulator widget
         # self.terminal = QTermWidget()

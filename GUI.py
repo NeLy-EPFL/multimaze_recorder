@@ -13,6 +13,8 @@ import socket
 import time
 import numpy as np
 
+# TODO: Close folder doesn't close the folder properly
+# TODO: create_data folder doesnt create the folder where it should
 
 class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):

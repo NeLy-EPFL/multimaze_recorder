@@ -4,8 +4,8 @@
 source activate mazerecord
 
 # change to the right directory
-cd /home/matthias/multimaze_recorder
+cd /home/matthias/multimaze_recorder/GUI
 
 
 # execute the check crops command
-python GUI.py
+python MainWindow.py

@@ -26,6 +26,9 @@ class ExperimentWindowSignals(QObject):
 
     # experimentPathChanged = pyqtSignal(Path)
     experiment_typeChanged = pyqtSignal(str)
+    
+    # refreshfolders
+    folder_created = pyqtSignal()
 
 
 class ExperimentWindow(QWidget):
@@ -598,6 +601,8 @@ class ExperimentWindow(QWidget):
 
             # Open the new data folder
             self.open_data_folder(self.folder_path)
+        
+        self.signals.folder_created.emit()
 
     def open_data_folder(self, folder_path=None, recorded=False):
         if self.folder_path and str(self.main_window.settings.datafolder) not in str(

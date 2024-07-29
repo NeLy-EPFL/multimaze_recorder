@@ -1,7 +1,7 @@
 import cv2
 from Utilities import *
 
-presets = "/home/matthias/multimaze_recorder/Presets/standard_set.json"
+presets = "/home/matthias/multimaze_recorder/GUI/Presets/standard_set.json"
 
 camera = configure_camera(presets)
 
