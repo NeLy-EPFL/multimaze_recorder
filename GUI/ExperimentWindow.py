@@ -111,9 +111,13 @@ class ExperimentWindow(QWidget):
         # Create widgets
         self.main_window = main_window
 
-        self.metadata_template = MetadataTemplate(self)
+        # self.metadata_template = MetadataTemplate(self)
 
-        self.metadata = None
+        # print(self.metadata_template.variables)
+
+        self.metadata = Metadata(self, new=True)
+
+        print(self.metadata)
 
         # self.main_window.settings = main_window.settings
 
@@ -155,10 +159,6 @@ class ExperimentWindow(QWidget):
             self.on_hardware_checkbox_state_changed
         )
 
-        self.table_style_selector = QComboBox()
-        self.table_style_selector.addItems(["arenas", "corridors"])
-        self.table_style_selector.currentIndexChanged.connect(self.update_table_style)
-
         # Load existing metadata registries
         metadata_folder = Path("Metadata_Template")
         metadata_list = [f.stem for f in metadata_folder.glob("*.json")]
@@ -193,8 +193,6 @@ class ExperimentWindow(QWidget):
 
         hbox_style = QHBoxLayout()
         # layout.addWidget(self.stop_button)
-        hbox_style.addWidget(QLabel("Table layout:"))
-        hbox_style.addWidget(self.table_style_selector)
 
         hbox_style.addWidget(QLabel("Metadata:"))
         hbox_style.addWidget(self.metadata_selector)
@@ -202,9 +200,15 @@ class ExperimentWindow(QWidget):
         layout.addLayout(hbox_style)
 
         # Create an empty table
-        self.table = self.create_table(
-            # init=True
+        self.table = CustomTableWidget(self)
+
+        self.table_style_selector = QComboBox()
+        self.table_style_selector.addItems(["arenas", "corridors"])
+        self.table_style_selector.currentIndexChanged.connect(
+            self.table.update_table_style
         )
+        hbox_style.addWidget(QLabel("Table layout:"))
+        hbox_style.addWidget(self.table_style_selector)
 
         # Add the table to the layout
         layout.addWidget(self.table)
@@ -229,183 +233,6 @@ class ExperimentWindow(QWidget):
             self.HardwareTrigger_checkbox.setChecked(True)
         else:
             self.HardwareTrigger_checkbox.setEnabled(False)
-
-    def create_table(
-        self, metadata=None, table_style="arenas", experiment_type=None, init=False
-    ):
-        """
-        Create a new table widget using the provided metadata
-
-        Parameters
-        ----------
-        metadata : dict, optional
-            A dictionary containing the metadata for the table, by default None
-        table_style : str, optional
-            The layout style of the table, by default "arenas"
-
-        Returns
-        -------
-        QTableWidget
-            A table widget containing the metadata
-        """
-        # Create a table widget to display the data
-        table = CustomTableWidget(self.table_style_selector, self.layout())
-
-        # Setup the table structure
-        table.setup_table(table_style)
-
-        if not init:
-            # Set the metadata if provided
-            if metadata:
-                table.set_metadata(metadata)
-
-        # Finalize the table setup
-        table.finalize_table()
-
-        return table
-
-    # def create_table(
-    #     self, metadata=None, table_style="arenas", experiment_type=None, init=False
-    # ):
-    #     """
-    #     Create a new table widget using the provided metadata
-
-    #     Parameters
-    #     ----------
-    #     metadata : dict, optional
-    #         A dictionary containing the metadata for the table, by default None
-    #     table_style : str, optional
-    #         The layout style of the table, by default "arenas"
-
-    #     Returns
-    #     -------
-    #     QTableWidget
-    #         A table widget containing the metadata
-    #     """
-    #     # Create a table widget to display the data
-    #     table = CustomTableWidget()
-
-    #     if table_style == "corridors":
-    #         column_count = 1 + 9 * 6
-    #         column_labels = ["Variable"]
-    #         for i in range(1, 10):
-    #             for j in range(1, 7):
-    #                 column_labels.append(f"Arena{i}_Corridor{j}")
-    #     elif table_style == "arenas":
-    #         column_count = 1 + 9
-    #         column_labels = ["Variable"]
-    #         for i in range(1, 10):
-    #             column_labels.append(f"Arena{i}")
-    #     table.setColumnCount(column_count)
-    #     table.setHorizontalHeaderLabels(column_labels)
-
-    #     # Add empty rows and items to the table
-    #     for row in range(10):
-    #         table.insertRow(row)
-    #         for col in range(table.columnCount()):
-    #             item = QTableWidgetItem("")
-    #             table.setItem(row, col, item)
-
-    #     if not init:
-
-    #         # Check if metadata was provided
-    #         if self.metadata:
-    #             # Fill the "Variable" column with the values from the "Variable" key in the metadata
-    #             for row, value in enumerate(self.metadata.metadata["Variable"]):
-    #                 value_item = QTableWidgetItem(value)
-    #                 table.setItem(row, 0, value_item)
-
-    #             # Fill the other columns with the values from the other keys in the metadata
-    #             col = 1
-    #             for variable, values in self.metadata.metadata.items():
-    #                 if variable != "Variable":
-    #                     for row, value in enumerate(values):
-    #                         value_item = QTableWidgetItem(value)
-    #                         table.setItem(row, col, value_item)
-    #                     col += 1
-
-    #                 else:
-    #                     print("No metadata file found for this experiment type.")
-    #                     # don't load any pre-existing metadata
-    #                     registry_file = None
-
-    #             if (
-    #                 registry_file
-    #                 and registry_file.exists()
-    #                 and registry_file.stat().st_size > 0
-    #             ):
-    #                 # Read the list of known variables from the registry file
-    #                 with open(registry_file, "r") as f:
-    #                     self.main_window.metadata_template = json.load(f)
-    #             else:
-    #                 # Create a new list to store the known variables
-    #                 self.main_window.settings.metadata_template = []
-
-    #             # Check if any known variables are missing from the table and add them if necessary
-    #             row = len(self.metadata.metadata["Variable"])
-    #             for variable in self.main_window.settings.metadata_template:
-    #                 if variable not in self.metadata.metadata["Variable"]:
-    #                     table.insertRow(row)
-    #                     value_item = QTableWidgetItem(variable)
-    #                     table.setItem(row, 0, value_item)
-    #                     # Set the values of the other columns for this row
-    #                     for col in range(1, table.columnCount()):
-    #                         value_item = QTableWidgetItem("")
-    #                         table.setItem(row, col, value_item)
-    #                     row += 1
-
-    #         else:
-
-    #             # Fill the "Variable" column with the values from the template
-    #             for row, value in enumerate(self.metadata_template.variables):
-    #                 value_item = QTableWidgetItem(value)
-    #                 table.setItem(row, 0, value_item)
-
-    #         print(
-    #             f"Creating table with {self.main_window.settings.experiment_type} and {table_style} style. Using registry {self.main_window.settings.metadata_template}."
-    #         )
-    #     # Resize the rows and columns to fit their contents
-    #     table.resizeRowsToContents()
-    #     table.resizeColumnsToContents()
-
-    #     # Set a smaller font size for the table
-    #     font = table.font()
-    #     font.setPointSize(10)
-    #     table.setFont(font)
-
-    #     # Set a larger minimum size for the table widget
-    #     table.setMinimumSize(800, 600)
-
-    #     # Add empty rows to the table
-    #     table.add_empty_rows(10)
-
-    #     # Set the background color of the cells
-    #     table.set_cell_colors()
-
-    #     return table
-
-    def update_table_style(self, index):
-        # Get the selected layout from the combo box
-        table_style = self.table_style_selector.itemText(index)
-        # Update the table and metadata with the new layout
-
-        self.create_metadata(table_style=table_style)
-        self.create_table(table_style=table_style)
-
-        layout = self.layout()
-
-        if not self.folder_open:
-            table = self.create_table(table_style=table_style)
-            # Remove the existing table from the layout (if any)
-            if self.table:
-                layout.removeWidget(self.table)
-                self.table.deleteLater()
-
-            # Add the new table to the layout
-            layout.addWidget(table)
-
-            # Store a reference to the new table in an attribute
-            self.table = table
 
     def close_folder(self):
         if self.folder_open == False:
@@ -615,24 +442,9 @@ class ExperimentWindow(QWidget):
             return  # Exit the function to avoid proceeding with an invalid index
 
         # Update Table
-        # Create a new table using the loaded metadata
-        table = self.create_table(
-            experiment_type=self.main_window.settings.experiment_type
-        )
+        self.metadata.load_template(self)
 
-        # Get the layout of the central widget
-        layout = self.layout()
-
-        # Remove the existing table from the layout (if any)
-        if self.table:
-            layout.removeWidget(self.table)
-            self.table.deleteLater()
-
-        # Add the new table to the layout
-        layout.addWidget(table)
-
-        # Store a reference to the new table in an attribute
-        self.table = table
+        self.table.set_metadata(self)
 
         print(f"Selected experiment type: {self.main_window.settings.experiment_type}")
 
@@ -642,23 +454,11 @@ class ExperimentWindow(QWidget):
 
         self.main_window.settings.experiment_type = registry
 
-        # Remove the existing table from the layout (if any)
-        layout = self.layout()
+        self.metadata.load_template(registry)
 
-        print(registry)
-        table = self.create_table(experiment_type=registry)
+        self.table.set_metadata(self)
 
-        if self.table:
-            layout.removeWidget(self.table)
-            self.table.deleteLater()
-
-        # Add the new table to the layout
-        layout.addWidget(table)
-
-        # Store a reference to the new table in an attribute
-        self.table = table
-
-    def create_data_folder(self, metadata=None):
+    def create_data_folder(self):
 
         # First check if the GUI has access to the data folder
         if self.check_data_access() == False:
@@ -767,20 +567,6 @@ class ExperimentWindow(QWidget):
             # Update the folder line edit with the full path to the new data folder
             self.folder_lineedit.setText(str(self.folder_path))
 
-            if self.folder_open:
-                self.table.deleteLater()
-                table = self.create_table(table_style=table_style)
-                # Store a reference to the new table in an attribute
-                self.table = table
-
-            # Create experiment.json in the main folder
-
-            self.metadata = Metadata(self, new=True)
-
-            # self.metadata = self.metadata.create_metadata(
-            #     table=self.table, table_style=table_style
-            # )
-
             self.metadata.save_metadata(self)
 
             # Open the new data folder
@@ -860,7 +646,7 @@ class ExperimentWindow(QWidget):
                     json.dump(self.metadata, f, indent=4)
 
         # Load the metadata from the selected folder
-        self.metadata = Metadata(self)
+        self.metadata.load_metadata(self)
         # with open(self.folder_path / "metadata.json", "r") as f:
         #     metadata = json.load(f)
 
@@ -870,24 +656,10 @@ class ExperimentWindow(QWidget):
         index = self.table_style_selector.findText(table_style)
         self.table_style_selector.setCurrentIndex(index)
 
-        # Create a new table using the loaded metadata
-        table = self.create_table(
-            self.metadata.metadata, table_style=self.table_style_selector.currentText()
-        )
+        self.table.set_metadata(self)
 
         # Get the layout of the central widget
         layout = self.layout()
-
-        # Remove the existing table from the layout (if any)
-        if self.table:
-            layout.removeWidget(self.table)
-            self.table.deleteLater()
-
-        # Add the new table to the layout
-        layout.addWidget(table)
-
-        # Store a reference to the new table in an attribute
-        self.table = table
 
         # Remove the existing information panel from the layout (if any)
         if hasattr(self, "info_panel"):
@@ -990,10 +762,9 @@ class ExperimentWindow(QWidget):
 
             # If the folder line edit is empty, prompt the user to choose a folder name
             if not folder_name:
-                self.metadata = self.create_metadata(table=self.table)
 
                 # Call the create_data_folder method to create a new data folder with the given metadata
-                self.create_data_folder(self.metadata.metadata)
+                self.create_data_folder()
 
                 # Get the new folder path from the line edit
                 self.folder_path = Path(self.folder_lineedit.text())
@@ -1005,7 +776,6 @@ class ExperimentWindow(QWidget):
                 )
 
                 self.create_data_folder()
-                self.metadata = self.create_metadata(table=self.table)
 
                 # Save the updated metadata
                 if self.check_data_access() == False:
@@ -1013,16 +783,13 @@ class ExperimentWindow(QWidget):
                 self.metadata.save_metadata(self)
 
         else:
-            self.metadata = self.create_metadata(
-                table=self.table, table_style=self.table_style_selector.currentText()
-            )
 
             # Save the updated metadata
             if self.check_data_access() == False:
                 return
             self.metadata.save_metadata(self)
 
-        self.metadata_template.update_template()
+        # self.metadata_template.update_template()
 
         # Open the new data folder
         self.open_data_folder(self.folder_path)
@@ -1041,4 +808,4 @@ class ExperimentWindow(QWidget):
         )
 
         # Compare the loaded metadata with the new metadata
-        return self.metadata.metadata != new_metadata
+        return self.metadata != new_metadata

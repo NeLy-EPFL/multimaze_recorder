@@ -13,10 +13,27 @@ import json
 
 
 class CustomTableWidget(QTableWidget):
-    def __init__(self, *args, **kwargs):
+
+    def __init__(
+        self,
+        parent,
+        # metadata=None,
+        table_style="arenas",
+        experiment_type=None,
+        init=False,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
 
+        self.setup_table(table_style)
+
+        self.set_metadata(parent)
+
+        self.cellChanged.connect(self.on_cell_changed)
+
     def setup_table(self, table_style="arenas"):
+
         if table_style == "corridors":
             column_count = 1 + 9 * 6
             column_labels = ["Variable"]
@@ -38,21 +55,54 @@ class CustomTableWidget(QTableWidget):
                 item = QTableWidgetItem("")
                 self.setItem(row, col, item)
 
-    def set_metadata(self, metadata):
-        if metadata:
-            # Fill the "Variable" column with the values from the "Variable" key in the metadata
-            for row, value in enumerate(metadata["Variable"]):
-                value_item = QTableWidgetItem(value)
-                self.setItem(row, 0, value_item)
+    def set_metadata(self, parent):
 
-            # Fill the other columns with the values from the other keys in the metadata
-            col = 1
-            for variable, values in metadata.items():
-                if variable != "Variable":
-                    for row, value in enumerate(values):
-                        value_item = QTableWidgetItem(value)
-                        self.setItem(row, col, value_item)
-                    col += 1
+        # Fill the "Variable" column with the values from the "Variable" key in the metadata
+        for row, value in enumerate(parent.metadata["Variable"]):
+            value_item = QTableWidgetItem(value)
+            self.setItem(row, 0, value_item)
+
+        # Fill the other columns with the values from the other keys in the metadata
+        col = 1
+        for variable, values in parent.metadata.items():
+            if variable != "Variable":
+                for row, value in enumerate(values):
+                    value_item = QTableWidgetItem(value)
+                    self.setItem(row, col, value_item)
+                col += 1
+
+        # Call the finalize_table method to resize the rows and columns, set the font size, and add empty rows
+        self.finalize_table()
+
+    def on_cell_changed(self, row, col):
+        self.update_metadata(self.parent(), row, col)
+
+    def update_metadata(self, parent, row, col):
+
+        # Get the value from the cell
+        item = self.item(row, col)
+        value = item.text() if item else ""
+
+        # Update the metadata dictionary
+        column_label = self.horizontalHeaderItem(col).text()
+        if col == 0:
+            # Update the "Variable" column
+            if "Variable" not in parent.metadata:
+                parent.metadata["Variable"] = []
+            if len(parent.metadata["Variable"]) <= row:
+                parent.metadata["Variable"].extend(
+                    [""] * (row + 1 - len(parent.metadata["Variable"]))
+                )
+            parent.metadata["Variable"][row] = value
+        else:
+            # Update other columns
+            if column_label not in parent.metadata:
+                parent.metadata[column_label] = []
+            if len(parent.metadata[column_label]) <= row:
+                parent.metadata[column_label].extend(
+                    [""] * (row + 1 - len(parent.metadata[column_label]))
+                )
+            parent.metadata[column_label][row] = value
 
     def finalize_table(self):
         # Resize the rows and columns to fit their contents
@@ -141,6 +191,8 @@ class CustomTableWidget(QTableWidget):
                 item = QTableWidgetItem("")
                 self.setItem(row, col, item)
 
+            # TODO: only use this if necessary
+
     def set_cell_colors(self):
         # Define a list of colors to use for each arena
         colors = [
@@ -175,7 +227,6 @@ class CustomTableWidget(QTableWidget):
         table_style = self.table_style_selector.itemText(index)
         # Update the table and metadata with the new layout
 
-        self.create_metadata(table_style=table_style)
         self.create_table(table_style=table_style)
 
         layout = self.layout
@@ -194,85 +245,60 @@ class CustomTableWidget(QTableWidget):
             self.table = table
 
 
-class Metadata:
+class Metadata(dict):
 
     def __init__(self, parent, new=False):
-
-        if not new:
-            self.metadata = self.load_metadata(parent)
-
+        super().__init__()
+        if new == False:
+            self.load_metadata(parent)
+            print(f"Loading Metadata: {self}")
         else:
-            self.metadata = self.create_metadata()
 
-    def create_metadata(self, table=None, table_style="arenas"):
-        # Create a new metadata dictionary
-        self.metadata = {"Variable": []}
-        if table_style == "corridors":
-            for i in range(1, 10):
-                for j in range(1, 7):
-                    self.metadata[f"Arena{i}_Corridor{j}"] = []
-        elif table_style == "arenas":
-            for i in range(1, 10):
-                self.metadata[f"Arena{i}"] = []
+            self.load_template(parent)
+            print(f"Initialising Metadata with parent: {self}")
 
-        # If a table object is provided, use it to populate the metadata dictionary
-        if table:
-            # Update the metadata with the data from the table
-            variables = set()
-            for row in range(table.rowCount()):
-                variable_item = table.item(row, 0)
-                if variable_item:
-                    variable = variable_item.text()
-                    if variable and variable not in variables:
-                        variables.add(variable)
-                        self.metadata["Variable"].append(variable)
-
-                        for col in range(1, table.columnCount()):
-                            value_item = table.item(row, col)
-                            column_label = table.horizontalHeaderItem(col).text()
-                            if value_item:
-                                value = value_item.text()
-                                self.metadata[column_label].append(value)
-                            else:
-                                self.metadata[column_label].append("")
-
-        return self.metadata
+    def load_template(self, parent):
+        try:
+            with open(parent.main_window.settings.metadata_template, "r") as file:
+                data = json.load(file)
+                self.update(data)
+        except FileNotFoundError:
+            print("Metadata template not found")
 
     def load_metadata(self, parent):
         try:
             with open(parent.folder_path / "metadata.json", "r") as file:
-                return json.load(file)
+                data = json.load(file)
+                self.update(data)
         except FileNotFoundError:
             print("Metadata file not found")
-            return []
 
     def save_metadata(self, parent):
         # TODO: improve the save_metadata method to correctly save the current table and not an empty one
-
         with open(parent.folder_path / "metadata.json", "w") as file:
-            json.dump(self.metadata, file, indent=4)
+            json.dump(self, file, indent=4)
 
     def detect_table_style(self):
-
-        metadata = self.metadata
-        print(f"Detecting table style for metadata: {metadata}")
+        print(f"Detecting table style for metadata: {self}")
 
         # Check if the metadata contains keys for the "corridor" layout
-        if any(key.startswith("Arena1_Corridor") for key in metadata.keys()):
+        if any(key.startswith("Arena1_Corridor") for key in self.keys()):
             return "corridors"
         # Check if the metadata contains keys for the "arena" layout
-        elif any(key.startswith("Arena") for key in metadata.keys()):
+        elif any(key.startswith("Arena") for key in self.keys()):
             return "arenas"
         # If neither layout is detected, return a default value
         else:
             return "arenas"
 
 
-class MetadataTemplate:
+class MetadataTemplate(dict):
     def __init__(self, parent):
 
         self.path = parent.main_window.settings.metadata_template
         print(f"Initialising Metadata Template with path {self.path}")
+
+        self.load_metadata_template(self.path)
 
         self.variables = self.load_metadata_variables()
 
@@ -320,10 +346,9 @@ class MetadataTemplate:
     def load_metadata_template(self, path):
         try:
             with open(path, "r") as f:
-                return json.load(f)
+                json.load(f)
         except (FileNotFoundError, json.JSONDecodeError) as e:
             print(f"Error loading metadata template: {e}")
-            return None
 
     def update_existing_template(self, metadata_template, path):
         for variable in self.metadata.metadata["Variable"]:

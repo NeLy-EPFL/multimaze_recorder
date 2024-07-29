@@ -1,13 +1,15 @@
-[
-    "Date",
-    "Genotype",
-    "Period",
-    "FeedingState",
-    "Orientation",
-    "Light",
-    "Crossing",
-    "BallType",
-    "Used_to ",
-    "Magnet",
-    "Demo"
-]
+{
+    "Variable": [
+        "Date",
+        "Genotype",
+        "Period",
+        "FeedingState",
+        "Orientation",
+        "Light",
+        "Crossing",
+        "BallType",
+        "Used_to ",
+        "Magnet",
+        "Demo"
+    ]
+}

@@ -1,6 +1,8 @@
-[
-    "Date",
-    "Genotype",
-    "FeedingState",
-    "Period"
-]
+{
+    "Variable": [
+        "Date",
+        "Genotype",
+        "FeedingState",
+        "Period"
+    ]
+}
