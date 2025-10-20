@@ -1,7 +1,10 @@
 import sys
 import cv2
 import time
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except Exception:
+    tqdm = None
 import json
 import TIS
 

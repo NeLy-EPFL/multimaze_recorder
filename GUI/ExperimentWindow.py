@@ -26,7 +26,7 @@ class ExperimentWindowSignals(QObject):
 
     # experimentPathChanged = pyqtSignal(Path)
     experiment_typeChanged = pyqtSignal(str)
-    
+
     # refreshfolders
     folder_created = pyqtSignal()
 
@@ -261,6 +261,7 @@ class ExperimentWindow(QWidget):
             self.folder_lineedit.setDisabled(False)
             self.table_style_selector.setDisabled(False)
             self.experiment_type_selector.setDisabled(False)
+            self.template_selector.setDisabled(False)
 
     def on_hardware_checkbox_state_changed(self, state):
         # If the checkbox is checked, enable hardware triggering
@@ -380,6 +381,7 @@ class ExperimentWindow(QWidget):
 
     def on_experiment_type_changed(self, index):
 
+        # TODO: synchronise the experiment change with the metadata template change etc.
         # If New Experiment is selected, create a new experiment
         if self.experiment_type_selector.currentText() == "New Experiment":
             # Temporarily disable the "New Experiment" option to avoid the loop
@@ -601,7 +603,7 @@ class ExperimentWindow(QWidget):
 
             # Open the new data folder
             self.open_data_folder(self.folder_path)
-        
+
         self.signals.folder_created.emit()
 
     def open_data_folder(self, folder_path=None, recorded=False):
@@ -641,143 +643,124 @@ class ExperimentWindow(QWidget):
         metadata_path = self.folder_path / "metadata.json"
 
         if not metadata_path.is_file():
-            # Show a message box asking if the user wants to create a metadata.json file
+            # Tell the user that this folder doesn't contain a metadata file and ask if they still want to open it
             reply = QMessageBox.question(
                 self,
-                "Missing Metadata File",
-                "This folder doesn't contain a metadata.json file. Would you like to create one?",
+                "No Metadata Found",
+                "No metadata file found in the selected folder. Are you sure you want to open it?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes,
             )
-            # Return if the user clicked "No"
             if reply == QMessageBox.StandardButton.No:
                 return
-            # Create a new metadata.json file if the user clicked "Yes"
             elif reply == QMessageBox.StandardButton.Yes:
-                # Prompt the user to choose a table style
-                table_style, ok = QInputDialog.getItem(
+                self.metadata.load_template(self)
+            else:
+                return
+
+        else:
+
+            # Load the metadata from the selected folder
+            self.metadata.load_metadata(self)
+            # with open(self.folder_path / "metadata.json", "r") as f:
+            #     metadata = json.load(f)
+
+            table_style = self.metadata.detect_table_style()
+
+            # Update the layout selector combo box with the detected layout
+            index = self.table_style_selector.findText(table_style)
+            self.table_style_selector.setCurrentIndex(index)
+
+            self.table.set_metadata(self)
+
+            # Get the layout of the central widget
+            layout = self.layout()
+
+            # Remove the existing information panel from the layout (if any)
+            if hasattr(self, "info_panel"):
+                layout.removeWidget(self.info_panel)
+                self.info_panel.deleteLater()
+
+            # Create an information panel widget
+            info_panel = QWidget()
+            info_layout = QVBoxLayout()
+            info_panel.setLayout(info_layout)
+
+            # Add a label to display the folder path
+            folder_label = QLabel(f"Folder: {self.folder_path}")
+
+            info_layout.addWidget(folder_label)
+
+            # Check if the subfolders contain videos and .h5 files
+            videos = False
+            processed = False
+            images = False
+
+            if self.folder_path.glob("*.mp4"):
+                videos = True
+
+            if self.folder_path.glob("*.h5"):
+                processed = True
+
+            # TODO: use the ssh / local check to check if the local machine has an experiment recorder with this name.
+            # Connect to experimental machine and check if the folder contains images
+            # Create a ssh command to go the the local_path and check if there is a folder with the same name as the folder name and if it contains images
+            # If it does, set images to True
+
+            # if self.main_window.local:
+            #     # Check if the folder contains images
+            #     images = self.check_images(self.folder_path)
+            # else:
+            #     # Check if the folder contains images
+            #     images = False
+
+            if videos or images:
+                # Disable the duration and fps spinboxes
+                self.duration_spinbox.setDisabled(True)
+                self.fps_spinbox.setDisabled(True)
+                self.record_button.setDisabled(True)
+
+                # if there are duration and fps files, apply their value to the spinboxes
+                if (self.folder_path / "duration.npy").exists():
+                    self.duration_spinbox.setValue(
+                        np.load(self.folder_path / "duration.npy")
+                    )
+                if (self.folder_path / "fps.npy").exists():
+                    self.fps_spinbox.setValue(np.load(self.folder_path / "fps.npy"))
+
+            # Add labels to display the status of the subfolders
+            full_label = QLabel(f"Full: {'Yes' if videos else 'No'}")
+            processed_label = QLabel(f"Processed: {'Yes' if processed else 'No'}")
+            info_layout.addWidget(full_label)
+            info_layout.addWidget(processed_label)
+
+            if images:
+                # send a message to the user to inform that images are available for this experiment to be processed
+                QMessageBox.information(
                     self,
-                    "Choose Table Style",
-                    "Choose a table style for the new data folder:",
-                    ["arenas", "corridors"],
-                    0,
-                    False,
+                    "Information",
+                    f"Images are available for this experiment to be processed.",
                 )
-                # Find the index of the item with the specified text
-                index = self.table_style_selector.findText(table_style)
-                # Set the current index of the table style selector combo box
-                self.table_style_selector.setCurrentIndex(index)
 
-                if not ok:
-                    return
-                # Create a new metadata.json file in the selected folder
-                self.metadata = self.create_metadata(table_style=table_style)
-                if self.check_data_access() == False:
-                    return
-                with open(metadata_path, "w") as f:
-                    json.dump(self.metadata, f, indent=4)
+            self.info_panel = info_panel
 
-        # Load the metadata from the selected folder
-        self.metadata.load_metadata(self)
-        # with open(self.folder_path / "metadata.json", "r") as f:
-        #     metadata = json.load(f)
+            # Add the information panel to the layout
 
-        table_style = self.metadata.detect_table_style()
+            layout.addWidget(info_panel)
 
-        # Update the layout selector combo box with the detected layout
-        index = self.table_style_selector.findText(table_style)
-        self.table_style_selector.setCurrentIndex(index)
+            # Set the folder_open attribute to True
+            self.folder_open = True
 
-        self.table.set_metadata(self)
+            # Set the folder line edit to the selected folder
+            self.folder_lineedit.setText(str(self.folder_path.name))
 
-        # Get the layout of the central widget
-        layout = self.layout()
+            self.folder_lineedit.setDisabled(True)
+            self.table_style_selector.setDisabled(True)
+            self.experiment_type_selector.setDisabled(True)
+            self.template_selector.setDisabled(True)
 
-        # Remove the existing information panel from the layout (if any)
-        if hasattr(self, "info_panel"):
-            layout.removeWidget(self.info_panel)
-            self.info_panel.deleteLater()
-
-        # Create an information panel widget
-        info_panel = QWidget()
-        info_layout = QVBoxLayout()
-        info_panel.setLayout(info_layout)
-
-        # Add a label to display the folder path
-        folder_label = QLabel(f"Folder: {self.folder_path}")
-
-        info_layout.addWidget(folder_label)
-
-        # Check if the subfolders contain videos and .h5 files
-        videos = False
-        processed = False
-        images = False
-
-        if self.folder_path.glob("*.mp4"):
-            videos = True
-
-        if self.folder_path.glob("*.h5"):
-            processed = True
-
-        # TODO: use the ssh / local check to check if the local machine has an experiment recorder with this name.
-        # Connect to experimental machine and check if the folder contains images
-        # Create a ssh command to go the the local_path and check if there is a folder with the same name as the folder name and if it contains images
-        # If it does, set images to True
-
-        # if self.main_window.local:
-        #     # Check if the folder contains images
-        #     images = self.check_images(self.folder_path)
-        # else:
-        #     # Check if the folder contains images
-        #     images = False
-
-        if videos or images:
-            # Disable the duration and fps spinboxes
-            self.duration_spinbox.setDisabled(True)
-            self.fps_spinbox.setDisabled(True)
-            self.record_button.setDisabled(True)
-
-            # if there are duration and fps files, apply their value to the spinboxes
-            if (self.folder_path / "duration.npy").exists():
-                self.duration_spinbox.setValue(
-                    np.load(self.folder_path / "duration.npy")
-                )
-            if (self.folder_path / "fps.npy").exists():
-                self.fps_spinbox.setValue(np.load(self.folder_path / "fps.npy"))
-
-        # Add labels to display the status of the subfolders
-        full_label = QLabel(f"Full: {'Yes' if videos else 'No'}")
-        processed_label = QLabel(f"Processed: {'Yes' if processed else 'No'}")
-        info_layout.addWidget(full_label)
-        info_layout.addWidget(processed_label)
-
-        if images:
-            # send a message to the user to inform that images are available for this experiment to be processed
-            QMessageBox.information(
-                self,
-                "Information",
-                f"Images are available for this experiment to be processed.",
-            )
-
-        self.info_panel = info_panel
-
-        # Add the information panel to the layout
-
-        layout.addWidget(info_panel)
-
-        # Set the folder_open attribute to True
-        self.folder_open = True
-
-        # Set the folder line edit to the selected folder
-        self.folder_lineedit.setText(str(self.folder_path.name))
-
-        self.folder_lineedit.setDisabled(True)
-        self.table_style_selector.setDisabled(True)
-        self.experiment_type_selector.setDisabled(True)
-        self.template_selector.setDisabled(True)
-
-        if self.tab_widget.currentIndex() != 0:
-            self.tab_widget.setCurrentIndex(0)
+            if self.tab_widget.currentIndex() != 0:
+                self.tab_widget.setCurrentIndex(0)
 
     def check_images(self, folder_path):
         # Check if the selected folder and subfolders contains any images
@@ -824,7 +807,7 @@ class ExperimentWindow(QWidget):
 
             self.metadata.save_metadata(self)
 
-        # self.metadata_template.update_template()
+        self.metadata.update_template(self)
 
         # Open the new data folder
         self.open_data_folder(self.folder_path)
@@ -836,7 +819,9 @@ class ExperimentWindow(QWidget):
             return False
 
         # Load the metadata from the selected folder
-        saved_metadata = self.metadata.load_metadata(self)
+        # Load the metadata without updating the in-memory Metadata instance so
+        # we can compare the saved content with the current in-memory state.
+        saved_metadata = self.metadata.load_metadata(self, update_self=False)
 
-        # Compare the loaded metadata with the new metadata
-        return self.metadata != saved_metadata
+        # Compare the loaded metadata (dict) with the in-memory Metadata
+        return dict(self.metadata) != dict(saved_metadata)
