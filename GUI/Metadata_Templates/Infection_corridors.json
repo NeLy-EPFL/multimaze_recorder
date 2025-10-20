@@ -1,0 +1,11 @@
+{
+    "Variable": [
+        "Date",
+        "Genotype",
+        "Condition",
+        "FocalSex",
+        "NeighborSex",
+        "FocalCondition",
+        "Infection"
+    ]
+}
