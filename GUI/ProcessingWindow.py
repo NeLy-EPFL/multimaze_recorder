@@ -8,7 +8,6 @@ from Settings import Settings
 import sys
 from pathlib import Path
 
-
 # Add the parent directory to the path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
@@ -143,7 +142,7 @@ class ProcessingWindow(QWidget):
             remote_user = "matthias"
             remote_host = "mmrecorder"
             remote_command = (
-                "bash /home/matthias/Tracking_Analysis/Tracktor/ProcessImages.sh"
+                "bash /home/matthias/multimaze_recorder/Processing/ProcessImages.sh"
             )
             ssh_command = f"ssh {remote_user}@{remote_host} {remote_command}"
             nohup_command = f"nohup {ssh_command} > /dev/null 2>&1 &"
@@ -185,7 +184,7 @@ class ProcessingWindow(QWidget):
             remote_user = "matthias"
             remote_host = "mmrecorder"
             remote_command = (
-                "bash /home/matthias/Tracking_Analysis/Tracktor/CheckCrops.sh"
+                "bash /home/matthias/multimaze_recorder/Processing/CheckCrops.sh"
             )
             ssh_command = f"ssh {remote_user}@{remote_host} {remote_command}; exit"
             os.system(
@@ -215,7 +214,7 @@ class ProcessingWindow(QWidget):
                     "gnome-terminal",
                     "--",
                     "/bin/bash",
-                    "/home/matthias/Tracking_Analysis/Tracktor/MakeVideos.sh",
+                    "/home/matthias/multimaze_recorder/Processing/MakeVideos.sh",
                 ]
             )
 
@@ -224,7 +223,7 @@ class ProcessingWindow(QWidget):
             remote_user = "matthias"
             remote_host = "mmrecorder"
             remote_command = (
-                "bash /home/matthias/Tracking_Analysis/Tracktor/MakeVideos.sh"
+                "bash /home/matthias/multimaze_recorder/Processing/MakeVideos.sh"
             )
             ssh_command = f"ssh {remote_user}@{remote_host} {remote_command}"
             nohup_command = f"nohup {ssh_command} > /dev/null 2>&1 &"
@@ -266,7 +265,7 @@ class ProcessingWindow(QWidget):
             remote_user = "matthias"
             remote_host = "mmrecorder"
             remote_command = (
-                "bash /home/matthias/Tracking_Analysis/Tracktor/CheckTracks.sh"
+                "bash /home/matthias/multimaze_recorder/Processing/CheckTracks.sh"
             )
             ssh_command = f"ssh {remote_user}@{remote_host} {remote_command}"
             nohup_command = f"nohup {ssh_command} > /dev/null 2>&1 &"
