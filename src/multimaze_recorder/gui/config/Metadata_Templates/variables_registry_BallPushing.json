@@ -1,0 +1,15 @@
+{
+    "Variable": [
+        "Date",
+        "Genotype",
+        "Period",
+        "FeedingState",
+        "Orientation",
+        "Light",
+        "Crossing",
+        "BallType",
+        "",
+        "",
+        ""
+    ]
+}
