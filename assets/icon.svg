@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Background -->
+  <rect width="64" height="64" rx="10" fill="#1a1a2e"/>
+
+  <!-- Maze walls: simplified top-down corridor grid -->
+  <!-- Outer border -->
+  <rect x="7" y="7" width="50" height="50" rx="3" fill="none" stroke="#4a9eff" stroke-width="2.5"/>
+
+  <!-- Vertical dividers -->
+  <line x1="24" y1="7"  x2="24" y2="31" stroke="#4a9eff" stroke-width="2.5"/>
+  <line x1="40" y1="33" x2="40" y2="57" stroke="#4a9eff" stroke-width="2.5"/>
+
+  <!-- Horizontal dividers -->
+  <line x1="7"  y1="24" x2="39" y2="24" stroke="#4a9eff" stroke-width="2.5"/>
+  <line x1="25" y1="40" x2="57" y2="40" stroke="#4a9eff" stroke-width="2.5"/>
+
+  <!-- Centre recording dot -->
+  <circle cx="32" cy="32" r="5" fill="#ff4455"/>
+  <circle cx="32" cy="32" r="3" fill="#ff8888"/>
+</svg>
