@@ -78,6 +78,14 @@ class ExperimentWindow(QWidget):
         layout.addWidget(QLabel("Folder:"))
         layout.addWidget(self.folder_lineedit)
 
+        self.path_info_label = QLabel()
+        self.path_info_label.setWordWrap(True)
+        self.path_info_label.setStyleSheet(
+            "QLabel { background-color: #2a2a2a; color: #cccccc; "
+            "padding: 5px 7px; border-radius: 3px; font-size: 11px; }"
+        )
+        layout.addWidget(self.path_info_label)
+
         hbox_record = QHBoxLayout()
         hbox_record.addWidget(self.record_button)
         hbox_record.addWidget(self.HardwareTrigger_checkbox)
@@ -104,6 +112,7 @@ class ExperimentWindow(QWidget):
         self.recording_thread = None
         self.folder_path = None
         self.folder_open = False
+        self.update_path_info()
 
         # Default to snap recording; switch to trigger if configured serial port exists
         self._set_recording_mode(hardware=False)
@@ -112,6 +121,14 @@ class ExperimentWindow(QWidget):
             self.HardwareTrigger_checkbox.setChecked(True)
         else:
             self.HardwareTrigger_checkbox.setEnabled(False)
+
+    def update_path_info(self):
+        s = self.main_window.settings
+        self.path_info_label.setText(
+            f"<b>User:</b> {s.user} &nbsp;|&nbsp; "
+            f"<b>Local:</b> {s.local_path} &nbsp;|&nbsp; "
+            f"<b>Server:</b> {s.experiment_path}"
+        )
 
     def _folder_has_recording(self, folder_path: Path) -> bool:
         """Return True only if the folder contains actual recorded data, not just metadata."""
@@ -160,7 +177,15 @@ class ExperimentWindow(QWidget):
         if not self.folder_open:
             return
         self.folder_open = False
+        self.metadata.clear()
         self.metadata.load_template(self)
+        self.table.blockSignals(True)
+        for row in range(self.table.rowCount()):
+            for col in range(self.table.columnCount()):
+                item = self.table.item(row, col)
+                if item:
+                    item.setText("")
+        self.table.blockSignals(False)
         self.table.set_metadata(self)
         if clear_name:
             self.folder_lineedit.clear()
@@ -300,6 +325,7 @@ class ExperimentWindow(QWidget):
             )
         )
         self.table.set_metadata(self)
+        self.update_path_info()
         print(f"Selected experiment type: {self.main_window.settings.experiment_type}")
 
     def select_metadata(self, index):
@@ -453,7 +479,15 @@ class ExperimentWindow(QWidget):
 
     def save_data(self):
         if not self.folder_path:
-            return False
+            folder_name = self.folder_lineedit.text().strip()
+            if not folder_name:
+                return False
+            if self.check_data_access() == False:
+                return False
+            self.folder_path = self.main_window.settings.experiment_path / folder_name
+            self.folder_path.mkdir(parents=True, exist_ok=True)
+            self.folder_open = True
+            self.signals.folder_created.emit()
         self.metadata.save_metadata(self)
         self.metadata.update_template(self)
         return True

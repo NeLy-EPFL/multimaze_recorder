@@ -112,6 +112,7 @@ class MainWindow(QMainWindow):
         try:
             if self.settings.experiment_type:
                 self.refresh_settings(self.settings.experiment_type)
+            self.experiment_window.update_path_info()
             print("Settings applied and UI refreshed.")
         except Exception as e:
             print(f"Error refreshing after settings change: {e}")
