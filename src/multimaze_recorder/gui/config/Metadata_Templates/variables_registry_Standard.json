@@ -1,0 +1,8 @@
+{
+    "Variable": [
+        "Date",
+        "Genotype",
+        "FeedingState",
+        "Period"
+    ]
+}

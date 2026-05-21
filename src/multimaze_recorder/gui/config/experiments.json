@@ -1,0 +1,24 @@
+[
+    {
+        "name": "Ball pushing",
+        "path": "MultiMazeRecorder/Videos",
+        "metadata_template": "Metadata_Templates/variables_registry_BallPushing.json"
+    },
+    {
+        "name": "Optobot",
+        "path": "Optogenetics/Optobot"
+    },
+    {
+        "name": "Irene experiments",
+        "path": "Irene_Optobot"
+    },
+    {
+        "name": "F1_Tracks",
+        "path": "F1_Tracks/Videos",
+        "metadata_template": "Metadata_Templates/F1_Tracks.json"
+    },
+    {
+        "name": "Infection_corridors",
+        "path": "Infection_Exps/InfectionCorridors/Experiments"
+    }
+]

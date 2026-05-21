@@ -1,0 +1,57 @@
+{
+    "format": {
+        "serial": "39220254",
+        "width": 4096,
+        "height": 3000,
+        "framerate": "30/1"
+    },
+    "properties": [
+        {
+            "property": "AutoFunctionsROIEnable",
+            "value": false
+        },
+        {
+            "property": "ExposureAuto",
+            "value": "Off"
+        },
+        {
+            "property": "BlackLevel",
+            "value": 0.0
+        },
+        {
+            "property": "ExposureTime",
+            "value": 800.0
+        },
+        {
+            "property": "GainAuto",
+            "value": "Off"
+        },
+        {
+            "property": "Gain",
+            "value": 10.0
+        },
+        {
+            "property": "Gamma",
+            "value": 1.1
+        },
+        {
+            "property": "ReverseX",
+            "value": false
+        },
+        {
+            "property": "ReverseY",
+            "value": false
+        },
+        {
+            "property": "TriggerMode",
+            "value": "Off"
+        }
+
+    ],
+    "cropping": {
+        "Left": 200,
+        "Top": 0,
+        "Right": 3900,
+        "Bottom": 3000
+    }
+}
