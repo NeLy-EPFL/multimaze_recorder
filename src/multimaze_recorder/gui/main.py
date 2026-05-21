@@ -2,9 +2,10 @@ from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 
-from multimaze_recorder.gui.settings import Settings
+from multimaze_recorder.gui.settings import Settings, _LAB_SERVER_CANDIDATES
 from multimaze_recorder.gui.experiment_window import ExperimentWindow
 from multimaze_recorder.gui.processing_window import ProcessingWindow
+from multimaze_recorder.gui.settings_pane import SettingsPane
 
 import sys
 import subprocess
@@ -15,13 +16,19 @@ class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
 
+        self.settings = Settings()
+
         hostname = socket.gethostname()
-        self.local = (hostname == "mmrecorder")
+        self.local = (hostname == self.settings.remote_host)
         self.online = True
 
         if not self.local:
             try:
-                subprocess.run(["ssh", "mmrecorder", "echo", "Connected"], timeout=5, check=True)
+                subprocess.run(
+                    ["ssh", self.settings.remote_host, "echo", "Connected"],
+                    timeout=5,
+                    check=True,
+                )
             except Exception:
                 QMessageBox.information(
                     self,
@@ -30,7 +37,6 @@ class MainWindow(QMainWindow):
                 )
                 self.online = False
 
-        self.settings = Settings()
         self.setWindowTitle("Multimaze Recorder")
         self.resize(800, 600)
 
@@ -46,6 +52,10 @@ class MainWindow(QMainWindow):
             self.processing_window.set_experiment_path
         )
         self.tab_widget.addTab(self.processing_window, "Processing")
+
+        self.settings_pane = SettingsPane(self)
+        self.settings_pane.signals.settings_applied.connect(self._on_settings_applied)
+        self.tab_widget.addTab(self.settings_pane, "Settings")
 
         self.processing_window.signals.openDataFolderRequested.connect(
             self.experiment_window.open_data_folder
@@ -76,6 +86,35 @@ class MainWindow(QMainWindow):
             action = QAction(label, self)
             action.triggered.connect(slot)
             file_menu.addAction(action)
+
+        # Defer server mount check so the window is visible first
+        QTimer.singleShot(0, self._check_server_mounted)
+
+    def _check_server_mounted(self):
+        data_str = str(self.settings.datafolder)
+        is_lab_path = any(
+            data_str.startswith(str(c)) for c in _LAB_SERVER_CANDIDATES
+        )
+        if is_lab_path and Settings.detect_server() is None:
+            QMessageBox.warning(
+                self,
+                "Lab Server Not Mounted",
+                "The configured data path points to the lab server,\n"
+                "but the server does not appear to be mounted.\n\n"
+                "Expected locations:\n"
+                "  /mnt/upramdya_data\n"
+                "  /mnt/upramdya/data\n\n"
+                "Data saving will fail until the server is mounted.\n"
+                "If you are working off-site, this is expected.",
+            )
+
+    def _on_settings_applied(self):
+        try:
+            if self.settings.experiment_type:
+                self.refresh_settings(self.settings.experiment_type)
+            print("Settings applied and UI refreshed.")
+        except Exception as e:
+            print(f"Error refreshing after settings change: {e}")
 
     def closeEvent(self, event):
         if self.experiment_window.has_unsaved_changes():

@@ -237,7 +237,8 @@ git clone <repo-url> multimaze_recorder
 cd multimaze_recorder
 
 # Create the virtual environment and install all Python dependencies
-uv sync
+# --extra dev adds pytest and related test tools
+uv sync --extra dev
 
 # Verify the installation
 uv run pytest tests/test_system_deps.py -v
@@ -249,17 +250,79 @@ A fully passing `test_system_deps.py` means all dependencies are correctly insta
 
 ## 5  Configure for your setup
 
-Edit `src/multimaze_recorder/gui/config/experiments.json` to match your
-server paths and experiment types.
+The easiest way to configure the application is through the **Settings tab** in the
+GUI itself.  Settings are saved to `~/.config/mmrecorder/settings.json` and persist
+across sessions.  The fields are described below.
 
-Key environment variables (set in `~/.bashrc` or `/etc/environment`):
+### 5.1  User initials
+
+Your user identifier — 2 to 4 capital letters (e.g. `MD`, `VLR`, `TKL`).  The GUI
+scans the lab server for existing user directories and lists them in a dropdown.  If
+you are setting up for the first time, type your initials directly.
+
+### 5.2  Data path (lab server)
+
+The full path to your data folder on the lab server, **including your user directory**.
+
+The lab server is mounted at one of two locations depending on the workstation:
+
+| Mount point | Notes |
+|---|---|
+| `/mnt/upramdya_data` | Most workstations |
+| `/mnt/upramdya/data` | Some older setups |
+
+So the data path is typically `/mnt/upramdya_data/MD/` (replace `MD` with your
+initials).  If you are not in the lab, point this to any local folder.
+
+The GUI will warn you at startup if the path looks like a lab server path but the
+server is not mounted — useful if you forgot to mount it before launching.
+
+### 5.3  Local path
+
+Where raw images are saved on this machine during recording.  Default: `~/Videos`.
+This folder is on the recording workstation's local disk and gets synced to the
+server after recording.
+
+### 5.4  Remote host
+
+The SSH hostname of the recording workstation — the machine physically connected
+to the cameras.  This is used to detect whether the GUI is running locally (on that
+machine) or remotely (on another computer accessing it over the network).
+
+- If you are running from the recording workstation itself, this must match the
+  machine's hostname (`hostname` in a terminal tells you what it is).
+- If you are running remotely, this must be a name that resolves over SSH — either
+  the workstation's network hostname, or an alias defined in `/etc/hosts` or
+  `~/.ssh/config`.
+
+Example: if the workstation is called `mmrecorder`, set this to `mmrecorder`.  You
+can verify SSH connectivity with `ssh mmrecorder echo ok`.
+
+### 5.5  Serial port
+
+The port the Arduino is connected to for hardware-triggered recording.  Usually
+`/dev/ttyACM0` on Linux.  Click **Refresh** in the Settings tab to list all
+currently connected ports.
+
+If no ports appear:
+- Make sure the Arduino is plugged in, then click Refresh.
+- If it still doesn't appear, your user may not be in the `dialout` group:
+
+```bash
+sudo usermod -aG dialout $USER   # then log out and back in
+```
+
+### 5.6  Environment variable overrides
+
+Settings saved in the GUI can be overridden by environment variables if needed
+(useful for scripting or CI).  Variables take priority over the saved config file.
 
 | Variable | Default | Description |
 |---|---|---|
-| `MMRECORDER_LOCAL_PATH` | `~/Videos` | Where raw images are saved locally |
-| `MMRECORDER_DATA_PATH` | `/mnt/upramdya_data/MD/` | Lab server data root |
-| `MMRECORDER_USER` | `MD` | User identifier for paths |
-| `MMRECORDER_REMOTE_HOST` | `mmrecorder` | Hostname of the recording workstation |
+| `MMRECORDER_USER` | `MD` | User initials |
+| `MMRECORDER_LOCAL_PATH` | `~/Videos` | Local recording path |
+| `MMRECORDER_DATA_PATH` | `/mnt/upramdya_data/<user>/` | Lab server data path |
+| `MMRECORDER_REMOTE_HOST` | `mmrecorder` | SSH hostname of recording workstation |
 | `MMRECORDER_SERIAL_PORT` | `/dev/ttyACM0` | Arduino serial port |
 
 ---

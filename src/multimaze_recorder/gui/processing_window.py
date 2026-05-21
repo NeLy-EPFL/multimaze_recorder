@@ -11,9 +11,6 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).parent.parent.parent.parent
 _PROCESSING_DIR = _REPO_ROOT / "Processing"
-_REMOTE_HOST = os.environ.get("MMRECORDER_REMOTE_HOST", "mmrecorder")
-_REMOTE_USER = os.environ.get("MMRECORDER_REMOTE_USER", "matthias")
-_REMOTE_REPO = os.environ.get("MMRECORDER_REMOTE_REPO", "/home/matthias/multimaze_recorder")
 
 
 class ProcessingWindowSignals(QObject):
@@ -28,6 +25,8 @@ class ProcessingWindow(QWidget):
         self.settings = main_window.settings
         self.signals = ProcessingWindowSignals()
         self.tab_widget = tab_widget
+        self.remote_user = os.environ.get("MMRECORDER_REMOTE_USER", "matthias")
+        self.remote_repo = os.environ.get("MMRECORDER_REMOTE_REPO", "/home/matthias/multimaze_recorder")
 
         layout = QHBoxLayout()
         process_layout = QVBoxLayout()
@@ -95,8 +94,9 @@ class ProcessingWindow(QWidget):
 
     def _run_remote_script(self, script_name):
         """Run a Processing shell script on the remote host via SSH."""
-        remote_command = f"bash {_REMOTE_REPO}/Processing/{script_name}"
-        ssh_command = f"ssh {_REMOTE_USER}@{_REMOTE_HOST} {remote_command}"
+        remote_host = self.main_window.settings.remote_host
+        remote_command = f"bash {self.remote_repo}/Processing/{script_name}"
+        ssh_command = f"ssh {self.remote_user}@{remote_host} {remote_command}"
         result = subprocess.run(
             f"nohup {ssh_command} > /dev/null 2>&1 &",
             shell=True,
@@ -124,8 +124,9 @@ class ProcessingWindow(QWidget):
         if self.main_window.local:
             self._run_local_script(_PROCESSING_DIR / "CheckCrops.sh")
         elif self.main_window.online:
-            remote_command = f"bash {_REMOTE_REPO}/Processing/CheckCrops.sh"
-            ssh_command = f"ssh {_REMOTE_USER}@{_REMOTE_HOST} {remote_command}; exit"
+            remote_host = self.main_window.settings.remote_host
+            remote_command = f"bash {self.remote_repo}/Processing/CheckCrops.sh"
+            ssh_command = f"ssh {self.remote_user}@{remote_host} {remote_command}; exit"
             os.system(
                 f'osascript -e \'tell application "Terminal" to do script "{ssh_command}"\''
             )
@@ -197,7 +198,8 @@ class ProcessingWindow(QWidget):
                         self.local_path_folder_list.addItem(item)
         else:
             remote_path_str = str(self.settings.local_path).rstrip("/") + "/"
-            ssh_command = f"ssh {_REMOTE_USER}@{_REMOTE_HOST} ls -d {remote_path_str}*/"
+            remote_host = self.main_window.settings.remote_host
+            ssh_command = f"ssh {self.remote_user}@{remote_host} ls -d {remote_path_str}*/"
             result = subprocess.run(
                 ssh_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )

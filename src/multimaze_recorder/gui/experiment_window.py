@@ -24,7 +24,6 @@ class ExperimentWindow(QWidget):
     def __init__(self, tab_widget, main_window, *args, **kwargs):
         super(ExperimentWindow, self).__init__(*args, **kwargs)
 
-        self.data_folder = Path("/mnt/upramdya_data/MD/")
         self.main_window = main_window
         self.metadata = Metadata(self, new=True)
         self.signals = ExperimentWindowSignals()
@@ -105,9 +104,9 @@ class ExperimentWindow(QWidget):
         self.folder_path = None
         self.folder_open = False
 
-        # Default to snap recording; switch to trigger if Arduino is present
+        # Default to snap recording; switch to trigger if configured serial port exists
         self._set_recording_mode(hardware=False)
-        if os.path.exists("/dev/ttyACM0"):
+        if os.path.exists(self.main_window.settings.serial_port):
             self.HardwareTrigger_checkbox.setEnabled(True)
             self.HardwareTrigger_checkbox.setChecked(True)
         else:
