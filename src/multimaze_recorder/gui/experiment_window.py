@@ -47,6 +47,7 @@ class ExperimentWindow(QWidget):
         )
 
         self.folder_lineedit = QLineEdit()
+        self.folder_lineedit.editingFinished.connect(self._on_folder_name_edited)
         self.record_button = QPushButton("Start Recording")
         self.record_button.clicked.connect(self.on_button_clicked)
 
@@ -112,6 +113,14 @@ class ExperimentWindow(QWidget):
         else:
             self.HardwareTrigger_checkbox.setEnabled(False)
 
+    def _folder_has_recording(self, folder_path: Path) -> bool:
+        """Return True only if the folder contains actual recorded data, not just metadata."""
+        return (
+            any(folder_path.glob("*.jpg"))
+            or any(folder_path.glob("*.mp4"))
+            or (folder_path / "fps.npy").exists()
+        )
+
     def _set_recording_mode(self, hardware: bool):
         if hardware:
             self._recording_module = "multimaze_recorder.scripts.trigger"
@@ -125,18 +134,37 @@ class ExperimentWindow(QWidget):
             self.fps_label.setText("FPS (range: 1-30):")
         print(f"Recording module: {self._recording_module}")
 
-    def close_folder(self):
+    def _on_folder_name_edited(self):
+        new_name = self.folder_lineedit.text().strip()
+        if not new_name:
+            return
+        if not (self.folder_open and self.folder_path):
+            return
+        if new_name == self.folder_path.name:
+            return
+        # User typed a different name while a folder was open — offer to save first
+        reply = QMessageBox.question(
+            self,
+            "Experiment Already Open",
+            f"'{self.folder_path.name}' is currently open.\n"
+            "Save metadata before switching to a new experiment?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.save_data()
+        self.close_folder(clear_name=False)
+        self.folder_lineedit.setText(new_name)
+
+    def close_folder(self, clear_name=True):
         if not self.folder_open:
             return
         self.folder_open = False
         self.metadata.load_template(self)
         self.table.set_metadata(self)
-        self.folder_lineedit.clear()
+        if clear_name:
+            self.folder_lineedit.clear()
         self.folder_path = None
-        self.folder_lineedit.setDisabled(False)
-        self.table_style_selector.setDisabled(False)
-        self.experiment_type_selector.setDisabled(False)
-        self.template_selector.setDisabled(False)
 
     def on_hardware_checkbox_state_changed(self, state):
         self._set_recording_mode(hardware=(state == 2))
@@ -144,7 +172,6 @@ class ExperimentWindow(QWidget):
     def on_button_clicked(self):
         duration = self.duration_spinbox.value()
         fps = self.fps_spinbox.value()
-        folder = self.folder_lineedit.text()
         camera_settings = str(self.main_window.settings.camera_settings)
 
         if not self.folder_open:
@@ -154,6 +181,9 @@ class ExperimentWindow(QWidget):
         else:
             self.save_data()
 
+        # Capture folder name after create_data_folder has set it
+        folder = self.folder_lineedit.text()
+
         np.save(self.folder_path / "fps.npy", fps)
         np.save(self.folder_path / "duration.npy", duration)
 
@@ -161,6 +191,10 @@ class ExperimentWindow(QWidget):
         self.record_button.setEnabled(False)
         self.duration_spinbox.setEnabled(False)
         self.fps_spinbox.setEnabled(False)
+        self.folder_lineedit.setDisabled(True)
+        self.table_style_selector.setDisabled(True)
+        self.experiment_type_selector.setDisabled(True)
+        self.template_selector.setDisabled(True)
 
         print(f"Recording module: {self._recording_module}")
 
@@ -190,6 +224,10 @@ class ExperimentWindow(QWidget):
         self.record_button.setEnabled(True)
         self.duration_spinbox.setEnabled(True)
         self.fps_spinbox.setEnabled(True)
+        self.folder_lineedit.setDisabled(False)
+        self.table_style_selector.setDisabled(False)
+        self.experiment_type_selector.setDisabled(False)
+        self.template_selector.setDisabled(False)
 
     def on_stop_button_clicked(self):
         if self.recording_thread and self.recording_thread.is_alive():
@@ -327,11 +365,11 @@ class ExperimentWindow(QWidget):
                 table_style = "arenas"
 
             self.folder_path = self.main_window.settings.experiment_path / folder_name
-            while self.folder_path.exists():
+            while self.folder_path.exists() and self._folder_has_recording(self.folder_path):
                 folder_name, ok = QInputDialog.getText(
                     self,
-                    "Folder Already Exists",
-                    f"The folder '{folder_name}' already exists. Enter a new name:",
+                    "Recording Already Exists",
+                    f"A recording named '{folder_name}' already exists.\nEnter a new name to avoid overwriting it:",
                 )
                 if not ok:
                     return
@@ -351,11 +389,11 @@ class ExperimentWindow(QWidget):
                     return
 
             self.folder_path = self.main_window.settings.experiment_path / folder_name
-            while self.folder_path.exists():
+            while self.folder_path.exists() and self._folder_has_recording(self.folder_path):
                 folder_name, ok = QInputDialog.getText(
                     self,
-                    "Folder Already Exists",
-                    f"The folder '{folder_name}' already exists. Enter a new name:",
+                    "Recording Already Exists",
+                    f"A recording named '{folder_name}' already exists.\nEnter a new name to avoid overwriting it:",
                 )
                 if not ok:
                     return
@@ -390,10 +428,6 @@ class ExperimentWindow(QWidget):
             self.metadata.load_metadata(self)
 
         self.folder_open = True
-        self.folder_lineedit.setDisabled(True)
-        self.table_style_selector.setDisabled(True)
-        self.experiment_type_selector.setDisabled(True)
-        self.template_selector.setDisabled(True)
 
         self.table.set_metadata(self)
 
