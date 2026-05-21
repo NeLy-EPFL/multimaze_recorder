@@ -111,20 +111,87 @@ Both commands must succeed before proceeding.
 
 ### 3.4  Troubleshooting tiscamera
 
-**`gst-inspect-1.0 tcambin` fails after install**
+**Start here: check which GStreamer is active**
 
-The tiscamera GStreamer plugins might be installed in a non-standard path.
+Many failures below share the same symptom (`undefined symbol` warnings or
+`No such element or plugin 'tcambin'`) but have different root causes.
+Run this first to orient yourself:
+
+```bash
+which gst-inspect-1.0      # should be /usr/bin/gst-inspect-1.0
+gst-inspect-1.0 --version  # should match: apt-cache policy libgstreamer1.0-0
+```
+
+---
+
+**conda or miniconda is shadowing system GStreamer**
+
+This is the most common cause on a shared workstation where conda is installed.
+Conda ships its own older GStreamer (typically 1.22.x) which takes priority over
+the system version (1.24.x on Ubuntu 24.04).  The tiscamera plugin is compiled
+against the system GStreamer and will fail under the conda one — either with
+`undefined symbol` errors or silently as `No such element or plugin`.
+
+If `which gst-inspect-1.0` points to a conda path (e.g. `~/miniconda3/...`),
+confirm with the system binary:
+
+```bash
+/usr/bin/gst-inspect-1.0 tcambin
+```
+
+If that succeeds, conda is the culprit.  To fix it permanently, remove the
+`conda initialize` block from your `~/.bashrc`:
+
+```bash
+# Find and delete the block between these two lines:
+# >>> conda initialize >>>
+# <<< conda initialize <<<
+```
+
+Then open a fresh terminal and verify `which gst-inspect-1.0` now returns
+`/usr/bin/gst-inspect-1.0`.
+
+---
+
+**`undefined symbol` warnings — Ubuntu version mismatch in the .deb**
+
+If conda is not involved but you still see `undefined symbol` errors, the `.deb`
+was compiled against a different Ubuntu version than the one installed.
+
 Check:
+
+```bash
+lsb_release -a
+dpkg -l | grep tiscamera
+```
+
+If the `.deb` variant does not match (e.g. `ubuntu_2404` build on a 22.04 machine),
+reinstall the correct one:
+
+```bash
+sudo dpkg -r tiscamera
+# Download the matching .deb from https://github.com/TheImagingSource/tiscamera/releases
+sudo dpkg -i tiscamera_1.1.0_amd64_ubuntu_XXXX.deb
+sudo apt-get install -f
+```
+
+---
+
+**`gst-inspect-1.0 tcambin` fails — plugin installed in a non-standard path**
+
+If there are no symbol errors but `tcambin` is still not found, the plugin `.so`
+may not be in GStreamer's default scan path.  Check where it landed:
 
 ```bash
 find /usr /opt /lib -name "libgst*tcam*" 2>/dev/null
 ```
 
-If plugins are found in a path not in `GST_PLUGIN_PATH`, add it:
+If it is not in `/usr/lib/x86_64-linux-gnu/gstreamer-1.0/`, add the directory to
+your `~/.bashrc`:
 
 ```bash
-# Add to ~/.bashrc or /etc/environment
 export GST_PLUGIN_PATH=/path/to/tcam/plugins:$GST_PLUGIN_PATH
+source ~/.bashrc
 ```
 
 **`import gi; gi.require_version("Tcam","1.0")` raises `ValueError`**
