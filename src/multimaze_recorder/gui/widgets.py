@@ -297,20 +297,20 @@ class Metadata(dict):
             print("No template changes made")
 
     def check_diff(self, parent):
-        variables = self.get("Variable", [])
+        variables = [v for v in self.get("Variable", []) if v]
         try:
             with open(parent.main_window.settings.metadata_template) as f:
                 template = json.load(f)
         except FileNotFoundError:
             print("Metadata template not found")
             return False
-        template_variables = template.get("Variable", [])
+        template_variables = [v for v in template.get("Variable", []) if v]
         new_vars = [v for v in variables if v not in template_variables]
         missing_vars = [v for v in template_variables if v not in variables]
         return bool(new_vars or missing_vars)
 
     def create_template(self, parent, path):
-        template = {"Variable": self.get("Variable", [])}
+        template = {"Variable": [v for v in self.get("Variable", []) if v]}
         with open(path, "w") as f:
             json.dump(template, f, indent=4)
         print(f"Created metadata template: {template}")

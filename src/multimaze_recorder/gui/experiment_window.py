@@ -5,6 +5,7 @@ from PyQt6.QtCore import *
 from multimaze_recorder.gui.widgets import CustomTableWidget, Metadata
 
 import sys
+import time
 import threading
 import subprocess
 import os
@@ -180,10 +181,12 @@ class ExperimentWindow(QWidget):
     def record_images(self, module, folder, fps, duration, camera_settings):
         env = os.environ.copy()
         env["MMRECORDER_LOCAL_PATH"] = str(self.main_window.settings.local_path)
+        env["QT_LOGGING_RULES"] = "*.warning=false"
         subprocess.run(
             [sys.executable, "-m", module, folder, str(fps), str(duration), camera_settings],
             env=env,
         )
+        time.sleep(1)
         self.start_live_stream()
         self.record_button.setEnabled(True)
         self.duration_spinbox.setEnabled(True)
