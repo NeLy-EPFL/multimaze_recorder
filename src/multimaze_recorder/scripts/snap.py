@@ -64,6 +64,7 @@ class Recorder:
 
                     count += 1
 
+        cv2.destroyAllWindows()
         self.executor.shutdown(wait=True)
         print(f"Captured {count} frames in {time.perf_counter() - start:0.4f} seconds")
         folder.rename(folder.parent / (folder.name + "_Recorded"))

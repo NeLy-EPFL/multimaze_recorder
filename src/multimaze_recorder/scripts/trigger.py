@@ -42,23 +42,25 @@ def on_new_image(tis, userdata, folder, cropping):
         return
 
     userdata.busy = True
-    frame = tis.get_image()
-    userdata.image = frame
+    try:
+        frame = tis.get_image()
+        userdata.image = frame
 
-    filename = folder / f"image{userdata.imagecounter}.jpg"
-    image = Image.fromarray(np.squeeze(frame), mode="L")
-    Left, Top, Right, Bottom = cropping.values()
-    image = image.crop((Left, Top, Right, Bottom))
-    executor.submit(_save_image, image, str(filename))
+        filename = folder / f"image{userdata.imagecounter}.jpg"
+        image = Image.fromarray(np.squeeze(frame), mode="L")
+        Left, Top, Right, Bottom = cropping.values()
+        image = image.crop((Left, Top, Right, Bottom))
+        executor.submit(_save_image, image, str(filename))
 
-    thumbnail, userdata.dot_state, userdata.last_toggle_time = create_thumbnail(
-        frame, userdata.dot_state, userdata.last_toggle_time
-    )
-    cv2.imshow("Maze Recorder", thumbnail)
-    cv2.waitKey(1)
+        thumbnail, userdata.dot_state, userdata.last_toggle_time = create_thumbnail(
+            frame, userdata.dot_state, userdata.last_toggle_time
+        )
+        cv2.imshow("Maze Recorder", thumbnail)
+        cv2.waitKey(1)
 
-    userdata.imagecounter += 1
-    userdata.busy = False
+        userdata.imagecounter += 1
+    finally:
+        userdata.busy = False
 
 
 def main():
@@ -133,6 +135,7 @@ def main():
     print(f"Program duration: {time.perf_counter() - start:0.4f} seconds")
     print(f"Saved {CD.imagecounter} images")
 
+    cv2.destroyAllWindows()
     camera.stop_pipeline()
     executor.shutdown(wait=True)
     folder.rename(folder.parent / (folder.name + "_Recorded"))

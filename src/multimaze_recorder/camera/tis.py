@@ -172,8 +172,8 @@ class TIS:
         return self.img_mat
 
     def stop_pipeline(self):
-        self.pipeline.set_state(Gst.State.PAUSED)
-        self.pipeline.set_state(Gst.State.READY)
+        self.pipeline.set_state(Gst.State.NULL)
+        self.pipeline.get_state(5000000000)
 
     def get_source(self):
         return self.source
