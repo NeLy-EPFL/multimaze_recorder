@@ -24,7 +24,6 @@ class ExperimentWindow(QWidget):
     def __init__(self, tab_widget, main_window, *args, **kwargs):
         super(ExperimentWindow, self).__init__(*args, **kwargs)
 
-        self.data_folder = Path("/mnt/upramdya_data/MD/")
         self.main_window = main_window
         self.metadata = Metadata(self, new=True)
         self.signals = ExperimentWindowSignals()
@@ -48,6 +47,7 @@ class ExperimentWindow(QWidget):
         )
 
         self.folder_lineedit = QLineEdit()
+        self.folder_lineedit.editingFinished.connect(self._on_folder_name_edited)
         self.record_button = QPushButton("Start Recording")
         self.record_button.clicked.connect(self.on_button_clicked)
 
@@ -78,6 +78,14 @@ class ExperimentWindow(QWidget):
         layout.addWidget(QLabel("Folder:"))
         layout.addWidget(self.folder_lineedit)
 
+        self.path_info_label = QLabel()
+        self.path_info_label.setWordWrap(True)
+        self.path_info_label.setStyleSheet(
+            "QLabel { background-color: #2a2a2a; color: #cccccc; "
+            "padding: 5px 7px; border-radius: 3px; font-size: 11px; }"
+        )
+        layout.addWidget(self.path_info_label)
+
         hbox_record = QHBoxLayout()
         hbox_record.addWidget(self.record_button)
         hbox_record.addWidget(self.HardwareTrigger_checkbox)
@@ -104,14 +112,31 @@ class ExperimentWindow(QWidget):
         self.recording_thread = None
         self.folder_path = None
         self.folder_open = False
+        self.update_path_info()
 
-        # Default to snap recording; switch to trigger if Arduino is present
+        # Default to snap recording; switch to trigger if configured serial port exists
         self._set_recording_mode(hardware=False)
-        if os.path.exists("/dev/ttyACM0"):
+        if os.path.exists(self.main_window.settings.serial_port):
             self.HardwareTrigger_checkbox.setEnabled(True)
             self.HardwareTrigger_checkbox.setChecked(True)
         else:
             self.HardwareTrigger_checkbox.setEnabled(False)
+
+    def update_path_info(self):
+        s = self.main_window.settings
+        self.path_info_label.setText(
+            f"<b>User:</b> {s.user} &nbsp;|&nbsp; "
+            f"<b>Local:</b> {s.local_path} &nbsp;|&nbsp; "
+            f"<b>Server:</b> {s.experiment_path}"
+        )
+
+    def _folder_has_recording(self, folder_path: Path) -> bool:
+        """Return True only if the folder contains actual recorded data, not just metadata."""
+        return (
+            any(folder_path.glob("*.jpg"))
+            or any(folder_path.glob("*.mp4"))
+            or (folder_path / "fps.npy").exists()
+        )
 
     def _set_recording_mode(self, hardware: bool):
         if hardware:
@@ -126,18 +151,45 @@ class ExperimentWindow(QWidget):
             self.fps_label.setText("FPS (range: 1-30):")
         print(f"Recording module: {self._recording_module}")
 
-    def close_folder(self):
+    def _on_folder_name_edited(self):
+        new_name = self.folder_lineedit.text().strip()
+        if not new_name:
+            return
+        if not (self.folder_open and self.folder_path):
+            return
+        if new_name == self.folder_path.name:
+            return
+        # User typed a different name while a folder was open — offer to save first
+        reply = QMessageBox.question(
+            self,
+            "Experiment Already Open",
+            f"'{self.folder_path.name}' is currently open.\n"
+            "Save metadata before switching to a new experiment?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.save_data()
+        self.close_folder(clear_name=False)
+        self.folder_lineedit.setText(new_name)
+
+    def close_folder(self, clear_name=True):
         if not self.folder_open:
             return
         self.folder_open = False
+        self.metadata.clear()
         self.metadata.load_template(self)
+        self.table.blockSignals(True)
+        for row in range(self.table.rowCount()):
+            for col in range(self.table.columnCount()):
+                item = self.table.item(row, col)
+                if item:
+                    item.setText("")
+        self.table.blockSignals(False)
         self.table.set_metadata(self)
-        self.folder_lineedit.clear()
+        if clear_name:
+            self.folder_lineedit.clear()
         self.folder_path = None
-        self.folder_lineedit.setDisabled(False)
-        self.table_style_selector.setDisabled(False)
-        self.experiment_type_selector.setDisabled(False)
-        self.template_selector.setDisabled(False)
 
     def on_hardware_checkbox_state_changed(self, state):
         self._set_recording_mode(hardware=(state == 2))
@@ -145,7 +197,6 @@ class ExperimentWindow(QWidget):
     def on_button_clicked(self):
         duration = self.duration_spinbox.value()
         fps = self.fps_spinbox.value()
-        folder = self.folder_lineedit.text()
         camera_settings = str(self.main_window.settings.camera_settings)
 
         if not self.folder_open:
@@ -155,6 +206,9 @@ class ExperimentWindow(QWidget):
         else:
             self.save_data()
 
+        # Capture folder name after create_data_folder has set it
+        folder = self.folder_lineedit.text()
+
         np.save(self.folder_path / "fps.npy", fps)
         np.save(self.folder_path / "duration.npy", duration)
 
@@ -162,6 +216,10 @@ class ExperimentWindow(QWidget):
         self.record_button.setEnabled(False)
         self.duration_spinbox.setEnabled(False)
         self.fps_spinbox.setEnabled(False)
+        self.folder_lineedit.setDisabled(True)
+        self.table_style_selector.setDisabled(True)
+        self.experiment_type_selector.setDisabled(True)
+        self.template_selector.setDisabled(True)
 
         print(f"Recording module: {self._recording_module}")
 
@@ -191,6 +249,10 @@ class ExperimentWindow(QWidget):
         self.record_button.setEnabled(True)
         self.duration_spinbox.setEnabled(True)
         self.fps_spinbox.setEnabled(True)
+        self.folder_lineedit.setDisabled(False)
+        self.table_style_selector.setDisabled(False)
+        self.experiment_type_selector.setDisabled(False)
+        self.template_selector.setDisabled(False)
 
     def on_stop_button_clicked(self):
         if self.recording_thread and self.recording_thread.is_alive():
@@ -263,6 +325,7 @@ class ExperimentWindow(QWidget):
             )
         )
         self.table.set_metadata(self)
+        self.update_path_info()
         print(f"Selected experiment type: {self.main_window.settings.experiment_type}")
 
     def select_metadata(self, index):
@@ -328,11 +391,11 @@ class ExperimentWindow(QWidget):
                 table_style = "arenas"
 
             self.folder_path = self.main_window.settings.experiment_path / folder_name
-            while self.folder_path.exists():
+            while self.folder_path.exists() and self._folder_has_recording(self.folder_path):
                 folder_name, ok = QInputDialog.getText(
                     self,
-                    "Folder Already Exists",
-                    f"The folder '{folder_name}' already exists. Enter a new name:",
+                    "Recording Already Exists",
+                    f"A recording named '{folder_name}' already exists.\nEnter a new name to avoid overwriting it:",
                 )
                 if not ok:
                     return
@@ -352,11 +415,11 @@ class ExperimentWindow(QWidget):
                     return
 
             self.folder_path = self.main_window.settings.experiment_path / folder_name
-            while self.folder_path.exists():
+            while self.folder_path.exists() and self._folder_has_recording(self.folder_path):
                 folder_name, ok = QInputDialog.getText(
                     self,
-                    "Folder Already Exists",
-                    f"The folder '{folder_name}' already exists. Enter a new name:",
+                    "Recording Already Exists",
+                    f"A recording named '{folder_name}' already exists.\nEnter a new name to avoid overwriting it:",
                 )
                 if not ok:
                     return
@@ -391,10 +454,6 @@ class ExperimentWindow(QWidget):
             self.metadata.load_metadata(self)
 
         self.folder_open = True
-        self.folder_lineedit.setDisabled(True)
-        self.table_style_selector.setDisabled(True)
-        self.experiment_type_selector.setDisabled(True)
-        self.template_selector.setDisabled(True)
 
         self.table.set_metadata(self)
 
@@ -420,7 +479,15 @@ class ExperimentWindow(QWidget):
 
     def save_data(self):
         if not self.folder_path:
-            return False
+            folder_name = self.folder_lineedit.text().strip()
+            if not folder_name:
+                return False
+            if self.check_data_access() == False:
+                return False
+            self.folder_path = self.main_window.settings.experiment_path / folder_name
+            self.folder_path.mkdir(parents=True, exist_ok=True)
+            self.folder_open = True
+            self.signals.folder_created.emit()
         self.metadata.save_metadata(self)
         self.metadata.update_template(self)
         return True

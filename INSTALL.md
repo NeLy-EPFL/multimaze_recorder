@@ -111,20 +111,87 @@ Both commands must succeed before proceeding.
 
 ### 3.4  Troubleshooting tiscamera
 
-**`gst-inspect-1.0 tcambin` fails after install**
+**Start here: check which GStreamer is active**
 
-The tiscamera GStreamer plugins might be installed in a non-standard path.
+Many failures below share the same symptom (`undefined symbol` warnings or
+`No such element or plugin 'tcambin'`) but have different root causes.
+Run this first to orient yourself:
+
+```bash
+which gst-inspect-1.0      # should be /usr/bin/gst-inspect-1.0
+gst-inspect-1.0 --version  # should match: apt-cache policy libgstreamer1.0-0
+```
+
+---
+
+**conda or miniconda is shadowing system GStreamer**
+
+This is the most common cause on a shared workstation where conda is installed.
+Conda ships its own older GStreamer (typically 1.22.x) which takes priority over
+the system version (1.24.x on Ubuntu 24.04).  The tiscamera plugin is compiled
+against the system GStreamer and will fail under the conda one — either with
+`undefined symbol` errors or silently as `No such element or plugin`.
+
+If `which gst-inspect-1.0` points to a conda path (e.g. `~/miniconda3/...`),
+confirm with the system binary:
+
+```bash
+/usr/bin/gst-inspect-1.0 tcambin
+```
+
+If that succeeds, conda is the culprit.  To fix it permanently, remove the
+`conda initialize` block from your `~/.bashrc`:
+
+```bash
+# Find and delete the block between these two lines:
+# >>> conda initialize >>>
+# <<< conda initialize <<<
+```
+
+Then open a fresh terminal and verify `which gst-inspect-1.0` now returns
+`/usr/bin/gst-inspect-1.0`.
+
+---
+
+**`undefined symbol` warnings — Ubuntu version mismatch in the .deb**
+
+If conda is not involved but you still see `undefined symbol` errors, the `.deb`
+was compiled against a different Ubuntu version than the one installed.
+
 Check:
+
+```bash
+lsb_release -a
+dpkg -l | grep tiscamera
+```
+
+If the `.deb` variant does not match (e.g. `ubuntu_2404` build on a 22.04 machine),
+reinstall the correct one:
+
+```bash
+sudo dpkg -r tiscamera
+# Download the matching .deb from https://github.com/TheImagingSource/tiscamera/releases
+sudo dpkg -i tiscamera_1.1.0_amd64_ubuntu_XXXX.deb
+sudo apt-get install -f
+```
+
+---
+
+**`gst-inspect-1.0 tcambin` fails — plugin installed in a non-standard path**
+
+If there are no symbol errors but `tcambin` is still not found, the plugin `.so`
+may not be in GStreamer's default scan path.  Check where it landed:
 
 ```bash
 find /usr /opt /lib -name "libgst*tcam*" 2>/dev/null
 ```
 
-If plugins are found in a path not in `GST_PLUGIN_PATH`, add it:
+If it is not in `/usr/lib/x86_64-linux-gnu/gstreamer-1.0/`, add the directory to
+your `~/.bashrc`:
 
 ```bash
-# Add to ~/.bashrc or /etc/environment
 export GST_PLUGIN_PATH=/path/to/tcam/plugins:$GST_PLUGIN_PATH
+source ~/.bashrc
 ```
 
 **`import gi; gi.require_version("Tcam","1.0")` raises `ValueError`**
@@ -170,7 +237,8 @@ git clone <repo-url> multimaze_recorder
 cd multimaze_recorder
 
 # Create the virtual environment and install all Python dependencies
-uv sync
+# --extra dev adds pytest and related test tools
+uv sync --extra dev
 
 # Verify the installation
 uv run pytest tests/test_system_deps.py -v
@@ -182,17 +250,79 @@ A fully passing `test_system_deps.py` means all dependencies are correctly insta
 
 ## 5  Configure for your setup
 
-Edit `src/multimaze_recorder/gui/config/experiments.json` to match your
-server paths and experiment types.
+The easiest way to configure the application is through the **Settings tab** in the
+GUI itself.  Settings are saved to `~/.config/mmrecorder/settings.json` and persist
+across sessions.  The fields are described below.
 
-Key environment variables (set in `~/.bashrc` or `/etc/environment`):
+### 5.1  User initials
+
+Your user identifier — 2 to 4 capital letters (e.g. `MD`, `VLR`, `TKL`).  The GUI
+scans the lab server for existing user directories and lists them in a dropdown.  If
+you are setting up for the first time, type your initials directly.
+
+### 5.2  Data path (lab server)
+
+The full path to your data folder on the lab server, **including your user directory**.
+
+The lab server is mounted at one of two locations depending on the workstation:
+
+| Mount point | Notes |
+|---|---|
+| `/mnt/upramdya_data` | Most workstations |
+| `/mnt/upramdya/data` | Some older setups |
+
+So the data path is typically `/mnt/upramdya_data/MD/` (replace `MD` with your
+initials).  If you are not in the lab, point this to any local folder.
+
+The GUI will warn you at startup if the path looks like a lab server path but the
+server is not mounted — useful if you forgot to mount it before launching.
+
+### 5.3  Local path
+
+Where raw images are saved on this machine during recording.  Default: `~/Videos`.
+This folder is on the recording workstation's local disk and gets synced to the
+server after recording.
+
+### 5.4  Remote host
+
+The SSH hostname of the recording workstation — the machine physically connected
+to the cameras.  This is used to detect whether the GUI is running locally (on that
+machine) or remotely (on another computer accessing it over the network).
+
+- If you are running from the recording workstation itself, this must match the
+  machine's hostname (`hostname` in a terminal tells you what it is).
+- If you are running remotely, this must be a name that resolves over SSH — either
+  the workstation's network hostname, or an alias defined in `/etc/hosts` or
+  `~/.ssh/config`.
+
+Example: if the workstation is called `mmrecorder`, set this to `mmrecorder`.  You
+can verify SSH connectivity with `ssh mmrecorder echo ok`.
+
+### 5.5  Serial port
+
+The port the Arduino is connected to for hardware-triggered recording.  Usually
+`/dev/ttyACM0` on Linux.  Click **Refresh** in the Settings tab to list all
+currently connected ports.
+
+If no ports appear:
+- Make sure the Arduino is plugged in, then click Refresh.
+- If it still doesn't appear, your user may not be in the `dialout` group:
+
+```bash
+sudo usermod -aG dialout $USER   # then log out and back in
+```
+
+### 5.6  Environment variable overrides
+
+Settings saved in the GUI can be overridden by environment variables if needed
+(useful for scripting or CI).  Variables take priority over the saved config file.
 
 | Variable | Default | Description |
 |---|---|---|
-| `MMRECORDER_LOCAL_PATH` | `~/Videos` | Where raw images are saved locally |
-| `MMRECORDER_DATA_PATH` | `/mnt/upramdya_data/MD/` | Lab server data root |
-| `MMRECORDER_USER` | `MD` | User identifier for paths |
-| `MMRECORDER_REMOTE_HOST` | `mmrecorder` | Hostname of the recording workstation |
+| `MMRECORDER_USER` | `MD` | User initials |
+| `MMRECORDER_LOCAL_PATH` | `~/Videos` | Local recording path |
+| `MMRECORDER_DATA_PATH` | `/mnt/upramdya_data/<user>/` | Lab server data path |
+| `MMRECORDER_REMOTE_HOST` | `mmrecorder` | SSH hostname of recording workstation |
 | `MMRECORDER_SERIAL_PORT` | `/dev/ttyACM0` | Arduino serial port |
 
 ---
@@ -233,3 +363,35 @@ per-checkout.  A second user only needs to:
 3. Ensure environment variables point to their own paths if different.
 
 No admin rights are needed after the initial tiscamera `.deb` install.
+
+### GStreamer plugin not found for a second user on the same machine
+
+If the typelib exists (`ls /usr/lib/x86_64-linux-gnu/girepository-1.0/Tcam-1.0.typelib`
+succeeds) but `gst-inspect-1.0 tcambin` still fails with "No such element or
+plugin", the tiscamera GStreamer plugin `.so` is installed outside GStreamer's
+default scan path.  Each user needs `GST_PLUGIN_PATH` pointing to it.
+
+**Step 1 — find the plugin:**
+
+```bash
+find /usr /opt /lib -name "libgst*tcam*" 2>/dev/null
+```
+
+A typical result is something like:
+```
+/usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgsttcam.so
+```
+
+**Step 2 — add the directory to the new user's environment:**
+
+```bash
+# Replace the path below with the directory from Step 1
+echo 'export GST_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/gstreamer-1.0:$GST_PLUGIN_PATH' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Step 3 — verify:**
+
+```bash
+gst-inspect-1.0 tcambin
+```
