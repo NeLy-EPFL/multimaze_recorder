@@ -233,3 +233,35 @@ per-checkout.  A second user only needs to:
 3. Ensure environment variables point to their own paths if different.
 
 No admin rights are needed after the initial tiscamera `.deb` install.
+
+### GStreamer plugin not found for a second user on the same machine
+
+If the typelib exists (`ls /usr/lib/x86_64-linux-gnu/girepository-1.0/Tcam-1.0.typelib`
+succeeds) but `gst-inspect-1.0 tcambin` still fails with "No such element or
+plugin", the tiscamera GStreamer plugin `.so` is installed outside GStreamer's
+default scan path.  Each user needs `GST_PLUGIN_PATH` pointing to it.
+
+**Step 1 — find the plugin:**
+
+```bash
+find /usr /opt /lib -name "libgst*tcam*" 2>/dev/null
+```
+
+A typical result is something like:
+```
+/usr/lib/x86_64-linux-gnu/gstreamer-1.0/libgsttcam.so
+```
+
+**Step 2 — add the directory to the new user's environment:**
+
+```bash
+# Replace the path below with the directory from Step 1
+echo 'export GST_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/gstreamer-1.0:$GST_PLUGIN_PATH' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Step 3 — verify:**
+
+```bash
+gst-inspect-1.0 tcambin
+```
